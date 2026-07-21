@@ -61,3 +61,6 @@
 *.umap filter=lfs diff=lfs merge=lfs -text
 Content/MetaHumans/Danielle/SourceAssets/Danielle/dna filter=lfs diff=lfs merge=lfs -text
 Content/Metahumans/Pia/SourceAssets/Pia.dna filter=lfs diff=lfs merge=lfs -text
+**/ThirdParty/Nvigi/**/*.dll filter=lfs diff=lfs merge=lfs -text
+**/ThirdParty/Nvigi/**/*.bin filter=lfs diff=lfs merge=lfs -text
+**/ThirdParty/Nvigi/**/*.lib filter=lfs diff=lfs merge=lfs -text
