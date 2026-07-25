@@ -9,7 +9,8 @@ public class AvatarProjectEditorTarget : TargetRules
 	{
 		Type = TargetType.Editor;
 		DefaultBuildSettings = BuildSettingsVersion.V5;
+        IncludeOrderVersion = EngineIncludeOrderVersion.Unreal5_6;
 
-		ExtraModuleNames.AddRange( new string[] { "AvatarProject" } );
+        ExtraModuleNames.AddRange( new string[] { "AvatarProject" } );
 	}
 }

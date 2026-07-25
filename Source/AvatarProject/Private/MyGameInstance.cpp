@@ -1,13 +1,43 @@
 #include "MyGameInstance.h"
 #include "WebSocketsModule.h"
+#include "IWebSocket.h"
 #include "ACETypes.h"
 #include "ACERuntimeModule.h"
 #include "ACEAudioCurveSourceComponent.h"
 #include "Kismet/GameplayStatics.h"
 #include "Misc/Optional.h" // TOptional
-#include <json.hpp>
+#include "json.hpp"
 #include <map>
+#include<iostream>
 #define MAX_BUFF_SIZE 10
+
+using json = nlohmann::json;
+
+struct AudioHeaderMsg {
+	std::string type;
+	int sentence_id;
+	int chunk_index;
+	int length;
+};
+
+
+struct EmotionMsg {
+	std::string type;
+	int sentence_id;
+	std::string sentence;
+	std::string emotion;
+	std::map<std::string, int> predictions;
+	float maxProb;
+};
+
+struct AudioEndMsg {
+	std::string type;
+	int sentence_id;
+};
+
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(AudioHeaderMsg, type, sentence_id, chunk_index, length);
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(EmotionMsg, type, sentence_id, sentence, emotion, predictions, maxProb);
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(AudioEndMsg, type, sentence_id);
 
 void UMyGameInstance::Init()
 {
@@ -21,7 +51,7 @@ void UMyGameInstance::Init()
 	// Create a web socket
 	const FString& URL = TEXT("ws://localhost:8765");
 	const FString& PROTOCOL = TEXT("ws");						// Switch to WSS in production
-	websocket->FWebSocketsModule::Get().CreateWebSocket(URL, PROTOCOL);
+	websocket = FWebSocketsModule::Get().CreateWebSocket(URL, PROTOCOL);
 
 	// Connect to the web socket
 	websocket->Connect();
@@ -36,7 +66,9 @@ void UMyGameInstance::Init()
 	});
 	websocket->OnMessage().AddLambda([this](const FString& message) {
 		UE_LOG(LogTemp, Display, TEXT("Received message"));
-		if (message == "[[DONE]]") {
+		FString string = message;
+		std::string input = std::string(TCHAR_TO_UTF8(*string));
+		if (input == "[[DONE]]") {
 			UE_LOG(LogTemp, Display, TEXT("stream complete !"));
 			if (ActiveSequenceId != -1) {
 				endAudio(GetWorld());
@@ -48,34 +80,35 @@ void UMyGameInstance::Init()
 			return;
 		};
 
-		try {
-			json parsed = json::parse(message);
-			if (parsed.contains("type") && parsed["type"].is_string()) {
-				if (parsed["type"] == "emotion") {
-					UE_LOG(LogTemp, Display, TEXT("Emotion received"));
-					this->produceEmotion(parsed["sequence_id"].get<int>(), 
-										 parsed["predictions"].get<std::map<std::string, int>>());
-				}
-				else if(parsed["type"] == "audio_chunk") {
-					UE_LOG(LogTemp, Display, TEXT("Audion header received"));
-					this->handleHeader(parsed["sentence_id"], parsed["chunk_index"], parsed["legnth"]);
-				}
-				else if (parsed["type"] == "audio_end") {
-					UE_LOG(LogTemp, Display, TEXT("Audion for sentence ended"));
-					this->handleEnd(parsed["sentence_id"]);
-				}
-				else {
-					UE_LOG(LogTemp, Warning, TEXT("Invalid type field value !"));
-				}
-			} 
-			else {
-				UE_LOG(LogTemp, Warning, TEXT("No type field !"));
-			}
+		json parsed = json::parse(input, nullptr, /*allow_exceptions=*/false);
 
-		} catch (const json::parse_error& e) {
-			UE_LOG(LogTemp, Warning, TEXT("Parse error of json input !"));
-		} catch (const json::type_error& e) {
-			UE_LOG(LogTemp, Warning, TEXT("Type error when reading json input!"));
+		// Check if json is malformed
+		if (parsed.is_discarded()) {
+			UE_LOG(LogTemp, Warning, TEXT("Malformed json !"));
+			return;
+		}
+
+		// Extract the type of the message
+		const std::string type = parsed.value("type", "");
+		if (type == "emotion") {
+			UE_LOG(LogTemp, Display, TEXT("Emotion received"));
+			auto msg = parsed.get<EmotionMsg>();
+			this->produceEmotion(msg.sentence_id, msg.predictions);
+			
+		}
+		else if (type== "audio_chunk") {
+			UE_LOG(LogTemp, Display, TEXT("Audion header received"));
+			auto msg = parsed.get<AudioHeaderMsg>();
+			this->handleHeader(msg.sentence_id, msg.chunk_index, msg.length);
+			
+		}
+		else if (type == "audio_end") {
+			UE_LOG(LogTemp, Display, TEXT("Audion for sentence ended"));
+			auto msg = parsed.get<AudioEndMsg>();
+			this->handleEnd(msg.sentence_id);
+		}
+		else {
+			UE_LOG(LogTemp, Warning, TEXT("Invalid type field value !"));
 		}
 	});
 
@@ -196,17 +229,17 @@ void UMyGameInstance::tryDispatch(int id) {
 		return;
 	};
 
-	FPendingSentence& pendingSentence = myMap.at(id);
+	FPendingSentence& pending = myMap.at(id);
 
 	// Check both emotion and audio data are ready
-	if (!(pendingSentence.emotionReady && pendingSentence.firstChunkArrived)) {
+	if (!(pending.emotionReady && pending.firstChunkArrived)) {
 		return;
 	}
 
-	passAudio(pendingSentence.buffer, GetWorld(), pendingSentence.emotion);
-	pendingSentence.buffer.Reset();
+	passAudio(pending.buffer, GetWorld(), pending.emotion);
+	pending.buffer.Reset();
 
-	if (pendingSentence.audioEnded) {
+	if (pending.audioEnded) {
 		myMap.erase(id);
 		ActiveSequenceId++;
 		if (myMap.contains(ActiveSequenceId)) {
@@ -267,14 +300,14 @@ UACEAudioCurveSourceComponent* UMyGameInstance::getAudioCurveSource(UObject* wor
 	UACEAudioCurveSourceComponent* consumer = Cast<UACEAudioCurveSourceComponent>(myActor->FindComponentByClass<UACEAudioCurveSourceComponent>());
 
 	return consumer;
-}
+};
 
 void UMyGameInstance::passAudio(TArray<uint8> data, UObject* world, FEmotion emotion) {
 	// Convert the array to TArray<float>
 	TArray<float> floatAudio;
-	floatAudio.SetNumUninitialized(audio.Num());
-	for (int i = 0; i < audio.Num(); i++) {
-		floatAudio[i] = audio[i] / 32768.0f;
+	floatAudio.SetNumUninitialized(data.Num());
+	for (int i = 0; i < data.Num(); i++) {
+		floatAudio[i] = data[i] / 32768.0f;
 	};
 
 	// Access the audio ace component

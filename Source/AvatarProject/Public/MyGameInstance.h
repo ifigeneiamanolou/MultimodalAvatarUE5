@@ -18,7 +18,12 @@
 	next sentence using an asyncio TaskGroup
 	 
 */
-
+#include "WebSocketsModule.h"
+#include "IWebSocket.h"
+#include "ACETypes.h"
+#include "ACERuntimeModule.h"
+#include "ACEAudioCurveSourceComponent.h"
+#include "Tickable.h"
 #include<iostream>
 #include<mutex>
 #include<thread>
