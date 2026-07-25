@@ -14,3 +14,10 @@ The websocket runs on port 7865 of the Windows AWS EC2 instance. To generate the
 
 # Git LFS
 Git LFS is used to track large files, including .umap, .uasset and .dna files. These are tracked through the .gitattributes file in the root directory.
+
+# Plugins
+If one wishes to package the application or edit it within UE5 the NVIDIA ACE Plugin has to be manually included by following these steps:
+1. Delete the NV_ACE_REFERENCE folder inside the Plugins folder
+1. Download Audio2Face3D Unreal Engine 5.6 plugin through this page https://developer.nvidia.com/ace-for-games#section-getting-started
+2. Copy the folder NV_ACE_REFERENCE inside the zip downloaded
+1. Paste it under Plugins folder in the root directory
