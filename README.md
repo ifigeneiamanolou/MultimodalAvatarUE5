@@ -30,9 +30,9 @@ https://dev.epicgames.com/documentation/unreal-engine/setting-up-visual-studio-f
 3. Open the folder cloned using Visual Studio
 5. If prompted with the message "The solution contains packages with vulnerabilities" click on "manage nuget packages", locate the package "Magick-NET.Q16-HDRI-AnyCPU" and switch verson 14.7 with 14.15
 6. If the above version update fails locate the files AutomationTool.cproj, Gauntlet/Gauntlet.Automation.cproj and AutomationUtils/AutomationUtils.Automatio.cproj in the folder UE5.6/Engine/Source/Programs/AutomationTool and change the tag package reference related to "Magick-NET.Q16-HDRI-AnyCPU" to use version 14.15.0. Then repeat step 5
-7. Right click on 'Solution avatar project' in the solution explorer and clik rebuild solution making sure the engine association entry in AvatarProject.uproject is set to 5.6
+7. Right click on 'Solution avatar project' in the solution explorer and click rebuild solution making sure the engine association entry in AvatarProject.uproject is set to 5.6
 and that we are in Development mode for Win64
-8. Right click on the AvatarProject folder (not the general solution) and click on Set as strt up project
+8. Right click on the AvatarProject folder (not the general solution) and click on Set as start up project
 9. Right click again and select Debug > Start new instance (this will open uE5)
 10. From the main menu click Platforms > Windows > Package project
 11. Create a shortcut to the packaged application
