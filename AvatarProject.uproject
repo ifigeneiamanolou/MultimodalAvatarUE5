@@ -1,6 +1,6 @@
 {
 	"FileVersion": 3,
-	"EngineAssociation": "5.6",
+	"EngineAssociation": "{663DBB1C-4CC9-080B-9285-659390940E57}",
 	"Category": "",
 	"Description": "",
 	"Modules": [
@@ -11,10 +11,6 @@
 		}
 	],
 	"Plugins": [
-		{
-			"Name": "LiveLinkControlRig",
-			"Enabled": true
-		},
 		{
 			"Name": "AppleARKitFaceSupport",
 			"Enabled": true,

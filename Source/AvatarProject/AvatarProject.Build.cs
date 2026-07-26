@@ -16,8 +16,7 @@ public class AvatarProject : ModuleRules
             "InputCore", 
             "WebSockets", 
             "ACECore", 
-            "ACERuntime", 
-            "Kismet"
+            "ACERuntime"
         });
 
         PublicIncludePaths.Add(Path.Combine(ModuleDirectory, "ThirdParty", "nlohmann"));
