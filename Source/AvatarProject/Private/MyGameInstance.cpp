@@ -49,7 +49,7 @@ void UMyGameInstance::Init()
 	}
 
 	// Create a web socket
-	const FString& URL = TEXT("ws://localhost:8765");
+	const FString& URL = TEXT("ws://188.73.239.65:8765");
 	const FString& PROTOCOL = TEXT("ws");						// Switch to WSS in production
 	websocket = FWebSocketsModule::Get().CreateWebSocket(URL, PROTOCOL);
 
@@ -62,7 +62,8 @@ void UMyGameInstance::Init()
 	});
 
 	websocket->OnConnectionError().AddLambda([](const FString& Error) {
-		UE_LOG(LogTemp, Warning, TEXT("Error during connection !"));
+		UE_LOG(LogTemp, Warning, TEXT("Error during connection %s!"), *FString(Error));
+
 	});
 	websocket->OnMessage().AddLambda([this](const FString& message) {
 		UE_LOG(LogTemp, Display, TEXT("Received message"));
@@ -151,58 +152,54 @@ void UMyGameInstance::produceEmotion(int id, std::map<std::string, int> emotions
 
 // Emotion queue consumer
 void UMyGameInstance::consumeEmotion() {
-	while (true) {
-		FEmotion* emotion = emotionQueue.Peek();
-		emotionQueue.Pop();
-
+	FEmotion emotion;
+	while (emotionQueue.Dequeue(emotion)) {
 		// Sentinel value
-		if (emotion->sequenceId == -1) {
+		if (emotion.sequenceId == -1) {
 			break;
 		};
 
 		// Update sentence map if necessary
-		if (emotion && myMap.contains(emotion->sequenceId)) {
-			myMap[emotion->sequenceId].emotion = *emotion;
-			myMap[emotion->sequenceId].emotionReady = true;
+		if (myMap.contains(emotion.sequenceId)) {
+			myMap[emotion.sequenceId].emotion = emotion;
+			myMap[emotion.sequenceId].emotionReady = true;
 		}
 		else {
 			FPendingSentence sentence;
 			sentence.emotionReady = true;
-			sentence.emotion = *emotion;
-			myMap.insert({ emotion->sequenceId, sentence });
+			sentence.emotion = emotion;
+			myMap.insert({ emotion.sequenceId, sentence });
 		}
 	}
 };
 
 void UMyGameInstance::consumeAudio() {
-	while (true){
-		FAudioMessage* message = audioQueue.Peek();
-		audioQueue.Pop();
+	FAudioMessage message;
 
+	while (audioQueue.Dequeue(message)) {
 		// Sentinel value
-		if (message->sequenceId == -1) {
+		if (message.sequenceId == -1) {
 			break;
 		};
 
 		// Update sentence map if necessary
-		if (message && myMap.contains(message->sequenceId)) {
-			myMap[message->sequenceId].buffer.Append(message->audio);
-			if (message->chunkId == 0) {
-				myMap[message->sequenceId].firstChunkArrived = true;
+		if (myMap.contains(message.sequenceId)) {
+			myMap[message.sequenceId].buffer.Append(message.audio);
+			if (message.chunkId == 0) {
+				myMap[message.sequenceId].firstChunkArrived = true;
 			}
 		}
 		else {
 			FPendingSentence sentence;
 			sentence.firstChunkArrived = true;
-			sentence.buffer = message->audio;
-			myMap.insert({ message->sequenceId, sentence });
+			sentence.buffer = message.audio;
+			myMap.insert({ message.sequenceId, sentence });
 		}
 
-
 		// Try dispatching audio from the map
-		tryDispatch(message->sequenceId);
+		tryDispatch(message.sequenceId);
 	}
-}
+};
 
 // Updates pending audio class attribute using the headers received
 void UMyGameInstance::handleHeader(int seq_id, int chunk_id, int length) {
@@ -347,6 +344,7 @@ void UMyGameInstance::endAudio(UObject* world) {
 
 // Called every frame
 void UMyGameInstance::Tick(float DeltaTime) {
+
 	consumeAudio();
 	consumeEmotion();
 
