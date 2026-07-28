@@ -28,10 +28,9 @@ Git LFS is used to track large files, including .umap, .uasset and .dna files. T
 
 # Plugins
 If one wishes to package the application or edit it within UE5 the NVIDIA ACE Plugin has to be manually included by following these steps:
-1. Delete the NV_ACE_REFERENCE folder inside the Plugins folder
-2. Download Audio2Face3D Unreal Engine 5.6 plugin through this page https://developer.nvidia.com/ace-for-games#section-getting-started
-3. Copy the folder NV_ACE_REFERENCE inside the zip downloaded
-4. Paste it under Plugins folder in the root directory
+1. Download Audio2Face3D Unreal Engine 5.6 plugin through this page https://developer.nvidia.com/ace-for-games#section-getting-started
+2. Copy the folder NV_ACE_REFERENCE inside the zip downloaded
+3. Paste it under Plugins folder in the root directory
 
 # Developer Instructions
 After cloning the repository and installing NVIDIA ACE and Unreal Engine 5.6 follow these steps:
