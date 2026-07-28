@@ -3,14 +3,25 @@
 This repository contains the UE5 files used to build the Metahuman application. It contains the following:
 
 * pixel streaming configuration
-* added metahuman configured to use Audio2Face and Audio2Emotion
-* additional source code in c++ to establish a web socket connection with the Ubuntu instance used to run Audio2Face and Orpheus3B so that received audio chunks from Orpheus3B can be transfered to Audio2Face
+* added metahuman configured to use Audio2Face and Audio2Emotion through the NVIDIA ACE plugin
+* cine camera added and pointed to the metahuman in game startup
+* additional source code in c++ 
+
+The latter handles the following:
+* creates a web socket server in port 7865 using C library libwebsockets under the hood
+* collects audio and emotion data send by the application in the queues and consumes them in a map
+* once both emotion and audio for a given sentence are available they are dispatched to Audio2Face
 
 # Source code
 The source code can be found under the Source/AvatarProject folder in the files:
 * MyGameInstance.cpp (private folder)
 * MyGameInstance.h (public folder)
-The websocket runs on port 7865 of the Windows AWS EC2 instance. To generate the UE5 project files the AvatarProject.uproject file in the root directory can be used
+To generate the UE5 project files the AvatarProject.uproject file in the root directory can be used. 
+
+# WebSocket server
+This project uses a modified version of UE5-ServerWebSocket by h2ogit, licensed under MIT to build the websocket server. This can be
+found under the Plugins/WebServerModule folder. The only change made in the source code of the above repository is in the 
+ServerWebSocket/Source/Private/ServerWebSocketSubsystem.cpp file in line 32 replacing = with "this" (deprecated feature).
 
 # Git LFS
 Git LFS is used to track large files, including .umap, .uasset and .dna files. These are tracked through the .gitattributes file in the root directory.

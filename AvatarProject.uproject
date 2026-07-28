@@ -49,6 +49,10 @@
 		{
 			"Name": "PixelStreaming2",
 			"Enabled": true
+		},
+		{
+			"Name": "ServerWebSocket",
+			"Enabled": true
 		}
 	]
 }

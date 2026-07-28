@@ -16,6 +16,11 @@
 	1) only one type of data is coming (audio, headers or emotion) using an asyncio lock
 	2) only once python backend has sent all audio and emotion data (including end information) for one sentence can it start sending data for the
 	next sentence using an asyncio TaskGroup
+
+	To enable communication between the Uvicorn backend client and the UE5 application, a web socket server is rendered at port 7865. This means that in the 
+	security group of the AWS Windows instance TCP port 7865 needs to be open to allow for incoming traffic from the Uvicorn client. SImilarly, in Windows 
+	firewall port 7865 needs to be open in the outbound rules in the local computer used to run the Uvicorn server, as well as in the inbound rules in the
+	Windows EC2 instance.
 	 
 */
 #include "WebSocketsModule.h"
@@ -24,6 +29,7 @@
 #include "ACERuntimeModule.h"
 #include "ACEAudioCurveSourceComponent.h"
 #include "Tickable.h"
+#include "IServerWebSocket.h"
 #include<iostream>
 #include<mutex>
 #include<thread>
@@ -93,12 +99,13 @@ protected:
 	AActor* myActor;
 private:
 	void handleHeader(int seq_id, int chunk_id, int length);
-	void produceEmotion(int id, map<string, int> emotions);
+	void produceEmotion(int id, map<string, float> emotions);
 	void consumeAudio();
 	void consumeEmotion();
 	void handleAudio(const void* audio, SIZE_T bytesRemaining, SIZE_T size);
 	void tryDispatch(int id);
 	void handleEnd(int seq_id);
+	void handleAudioEnd();
 
 	TSharedPtr<IWebSocket> websocket;						// Web socket connection
 	FPendingSentence pendingSentence;						// Currently incoming sentence
@@ -113,5 +120,8 @@ private:
 	condition_variable cvEmotion;
 	condition_variable cvAudio;
 
-	int ActiveSequenceId = 0;									// currently active sentence 
+	int ActiveSequenceId = 0;		// currently active sentence 
+
+	// server
+	TUniquePtr<IServerWebSocket> webServer;
 };
