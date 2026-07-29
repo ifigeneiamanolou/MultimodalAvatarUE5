@@ -51,16 +51,26 @@ void UMyGameInstance::Init()
 {
 	Super::Init();
 
+	// Make sure the module is loaded
+	if (!FModuleManager::Get().IsModuleLoaded("ServerWebSocket"))
+	{
+		FModuleManager::Get().LoadModule("ServerWebSocket");
+	}
+
+	FServerWebSocketModule* Module = FModuleManager::Get().GetModulePtr<FServerWebSocketModule>("ServerWebSocket");
+
+	if (!Module) {
+		UE_LOG(LogTemp, Warning, TEXT("Not able to load web sockets module !!"));
+		return;
+	}
+
 	// Create a web socket server
-	FServerWebSocketModule::Get().StartupModule();
-	webServer = FServerWebSocketModule::Get().CreateServer();
+	webServer = Module->CreateServer();
 
 	// Initialize the server and start listening for messages
 	uint32 port = 7865;
-	webServer->Init(port, FNetWebSocketClientConnectedCallBack::CreateLambda([this](INetWebSocket* connectedSocket) {
-		UE_LOG(LogTemp, Display, TEXT("Successfully started server on port 7865 !"));
-
-		// Handle client connection
+	bool wbSuccess = webServer->Init(port, FNetWebSocketClientConnectedCallBack::CreateLambda([this](INetWebSocket* connectedSocket) {
+		// Handle client connections
 		sockaddr_in* client = connectedSocket->GetRemoteAddr();
 		FString ipv4 = "";   // client ipv4 address
 		uint16 port = 0;     // port of client
@@ -70,6 +80,7 @@ void UMyGameInstance::Init()
 			UE_LOG(LogTemp, Display, TEXT("Client connected with ipv4 %s and port %d !"), *ipv4, port);
 		}
 
+		// Handle incoming client messages
 		FNetWebSocketPacketReceivedCallBack messageCallback;
 		messageCallback.BindLambda([this](void* data, int32 size) {
 			// Check if audio bytes are expected
@@ -155,6 +166,13 @@ void UMyGameInstance::Init()
 		connectedSocket->SetErrorCallBack(errorCallback);
 		connectedSocket->SetSocketClosedCallBack(closeCallback);
 	}));
+
+	if (wbSuccess) {
+		UE_LOG(LogTemp, Display, TEXT("Successfully started server on port 7865 !"));
+	}
+	else {
+		UE_LOG(LogTemp, Warning, TEXT("Failed to start server on port 7865 !"));
+	}
 };
 
 // Handle the end of a single sentence
@@ -406,13 +424,16 @@ TStatId UMyGameInstance::GetStatId() const {
 
 bool UMyGameInstance::IsTickable() const {
 	// Condition to perform a repeated action
-	return websocket.IsValid();
+	return webServer.IsValid();
 };
 
 void UMyGameInstance::Shutdown() {
 	Super::Shutdown();
 	// Close the web server
 	if (webServer) {
-		FServerWebSocketModule::Get().ShutdownModule();
-	};
-};
+		FServerWebSocketModule* Module = FModuleManager::Get().GetModulePtr<FServerWebSocketModule>("ServerWebSocket");
+		if (Module) {
+			Module->ShutdownModule();
+		}
+	}
+}

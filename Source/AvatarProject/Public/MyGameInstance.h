@@ -107,12 +107,11 @@ private:
 	void handleEnd(int seq_id);
 	void handleAudioEnd();
 
-	TSharedPtr<IWebSocket> websocket;						// Web socket connection
 	FPendingSentence pendingSentence;						// Currently incoming sentence
 	FPendingAudio pendingAudio;								// Currently incoming audio chunk
 	TQueue<FAudioMessage, EQueueMode::Mpsc> audioQueue;		// Queue of audio chunk
 	TQueue<FEmotion, EQueueMode::Mpsc> emotionQueue;		// Queue of emotion parameters
-	map<int, FPendingSentence> myMap;
+	map<int, FPendingSentence> myMap;						// Map of pending sentence
 
 	// Avoid overfilling or draining too early
 	mutex mEmotion;
@@ -122,6 +121,6 @@ private:
 
 	int ActiveSequenceId = 0;		// currently active sentence 
 
-	// server
+	// WebSocket server
 	TUniquePtr<IServerWebSocket> webServer;
 };
