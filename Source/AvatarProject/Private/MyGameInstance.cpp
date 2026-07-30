@@ -90,8 +90,7 @@ void UMyGameInstance::Init()
 			};
 
 			// Otherwise parse incoming JSON string
-			FString message = UTF8_TO_TCHAR(static_cast<const char*>(data));
-			string input = string(TCHAR_TO_UTF8(*message));
+			string input(static_cast<const char*>(data), size);
 			if (input == "[[DONE]]") {
 				UE_LOG(LogTemp, Display, TEXT("stream complete !"));
 				if (ActiveSequenceId != -1) {
@@ -321,12 +320,6 @@ void UMyGameInstance::handleAudio(const void* audio, SIZE_T bytesRemaining, SIZE
 	if (bytesRemaining > 0) {
 		return;
 	};
-
-	// Check for the number of bytes accumulated
-	if (pendingAudio.audio.Num() != pendingAudio.expected_bytes) {
-		UE_LOG(LogTemp, Warning, TEXT("Malformed audio bytes received"));
-		return;
-	}
 
 	// format audio data
 	FAudioMessage message;
