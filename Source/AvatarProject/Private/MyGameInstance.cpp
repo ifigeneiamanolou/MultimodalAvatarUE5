@@ -132,7 +132,6 @@ void UMyGameInstance::Init()
 				catch (const json::exception& e) {		// Handle missing key or type mismatch
 					UE_LOG(LogTemp, Warning, TEXT("Invalid json %s !"), UTF8_TO_TCHAR(e.what()));
 				};
-
 			}
 			else if (type == "audio_end") {
 				UE_LOG(LogTemp, Display, TEXT("Audion for sentence ended"));
@@ -328,6 +327,7 @@ void UMyGameInstance::handleAudio(const void* audio, SIZE_T bytesRemaining, SIZE
 	message.sequenceId = pendingAudio.sequenceId;
 
 	// push item to the queue
+	UE_LOG(LogTemp, Warning, TEXT("Pushing audio to the queue"));
 	audioQueue.Enqueue(message);
 
 	// Clean up pendingAudio
