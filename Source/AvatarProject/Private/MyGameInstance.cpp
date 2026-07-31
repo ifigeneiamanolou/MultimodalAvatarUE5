@@ -70,6 +70,9 @@ void UMyGameInstance::Init()
 	// Initialize the server and start listening for messages
 	uint32 port = 7865;
 	bool wbSuccess = webServer->Init(port, FNetWebSocketClientConnectedCallBack::CreateLambda([this](INetWebSocket* connectedSocket) {
+		// Notify blueprints a user was connected
+		OnClientConnected.Broadcast();
+
 		// Handle client connections
 		sockaddr_in* client = connectedSocket->GetRemoteAddr();
 		FString ipv4 = "";   // client ipv4 address
@@ -83,6 +86,12 @@ void UMyGameInstance::Init()
 		// Handle incoming client messages
 		FNetWebSocketPacketReceivedCallBack messageCallback;
 		messageCallback.BindLambda([this](void* data, int32 size) {
+			// Notify the blueprints
+			if (!(bUserStarted)) {
+				bUserStarted = true;
+				OnUserInput.Broadcast();
+			};
+
 			// Check if audio bytes are expected
 			if (pendingAudio.waiting) {
 				this->handleAudio(data, 0, size);
@@ -93,6 +102,7 @@ void UMyGameInstance::Init()
 			string input(static_cast<const char*>(data), size);
 			if (input == "[[DONE]]") {
 				UE_LOG(LogTemp, Display, TEXT("stream complete !"));
+				bUserStarted = false;
 				if (ActiveSequenceId != -1) {
 					endAudio(GetWorld());
 					ActiveSequenceId = -1;
@@ -134,7 +144,7 @@ void UMyGameInstance::Init()
 				};
 			}
 			else if (type == "audio_end") {
-				UE_LOG(LogTemp, Display, TEXT("Audion for sentence ended"));
+				UE_LOG(LogTemp, Display, TEXT("Audio for sentence ended"));
 				try {
 					auto msg = parsed.get<AudioEndMsg>();
 					this->handleEnd(msg.sentence_id);

@@ -23,6 +23,8 @@
 	Windows EC2 instance.
 	 
 */
+#include "CoreMinimal.h"
+#include "Engine/GameInstance.h"
 #include "WebSocketsModule.h"
 #include "IWebSocket.h"
 #include "ACETypes.h"
@@ -35,6 +37,12 @@
 #include<thread>
 #include<condition_variable>
 #include<map>
+#include "MyGameInstance.generated.h"
+
+
+// Delegates to notify the blueprints that a client is connected / sending text
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnClientConnected);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnUserInput);
 
 using namespace std;
 
@@ -77,27 +85,31 @@ struct FPendingSentence {
 	TArray<uint8> buffer;				// buffer for incoming chunks from Orpheus3B
 };
 
-#include "MyGameInstance.generated.h"
-
 UCLASS()
 class AVATARPROJECT_API UMyGameInstance : public UGameInstance, public FTickableGameObject
 {
 	GENERATED_BODY()
 
 public:
+
+	UPROPERTY(BlueprintAssignable, Category = "WebSockets")
+	FOnClientConnected OnClientConnected;
+
+	UPROPERTY(BlueprintAssignable, Category = "WebSockets")
+	FOnUserInput OnUserInput;
+
 	virtual void Init() override;
 	virtual void Shutdown() override;
 
 	virtual void Tick(float DeltaTime) override;
 	virtual TStatId GetStatId() const override;
 	virtual bool IsTickable() const override;
-protected:
+private:
 	void passAudio(TArray<uint8> data, UObject* world, FEmotion emotion);
     // Replace the declaration at line 96 with the correct type
     UACEAudioCurveSourceComponent* getAudioCurveSource(UObject* world);
 	void endAudio(UObject* world);
 	AActor* myActor;
-private:
 	void handleHeader(int seq_id, int chunk_id, int length);
 	void produceEmotion(int id, map<string, float> emotions);
 	void consumeAudio();
@@ -120,6 +132,7 @@ private:
 	condition_variable cvAudio;
 
 	int ActiveSequenceId = 0;		// currently active sentence 
+	bool bUserStarted = false;      // Indicates whether the user has sent a message
 
 	// WebSocket server
 	TUniquePtr<IServerWebSocket> webServer;

@@ -33,20 +33,24 @@ If one wishes to package the application or edit it within UE5 the NVIDIA ACE Pl
 3. Paste it under Plugins folder in the root directory
 
 # Developer Instructions
-After cloning the repository and installing NVIDIA ACE and Unreal Engine 5.6 follow these steps:
+After cloning the repository and installing NVIDIA ACE and Unreal Engine 5.6, you can edit the code and test the open following these steps:
 1. Ensure through VS Installer that all necessary packages are installed through this guide:
 https://dev.epicgames.com/documentation/unreal-engine/setting-up-visual-studio-for-unreal-engine?application_version=4.27
 2. Ensure UE5.6 is installed
-3. Open the folder cloned using Visual Studio
+3. Open the folder cloned and right click on AvatarProject.uproject and then Generate Visual Studio project files
+4. Open the .sln file generated
 5. If prompted with the message "The solution contains packages with vulnerabilities" click on "manage nuget packages", locate the package "Magick-NET.Q16-HDRI-AnyCPU" and switch verson 14.7 with 14.15
 6. If the above version update fails locate the files AutomationTool.cproj, Gauntlet/Gauntlet.Automation.cproj and AutomationUtils/AutomationUtils.Automatio.cproj in the folder UE5.6/Engine/Source/Programs/AutomationTool and change the tag package reference related to "Magick-NET.Q16-HDRI-AnyCPU" to use version 14.15.0. Then repeat step 5
 7. Right click on 'Solution avatar project' in the solution explorer and click rebuild solution making sure the engine association entry in AvatarProject.uproject is set to 5.6
 and that we are in Development mode for Win64
 8. Right click on the AvatarProject folder (not the general solution) and click on Set as start up project
 9. Right click again and select Debug > Start new instance (this will open uE5)
-10. From the main menu click Platforms > Windows > Package project
-11. Create a shortcut to the packaged application
-12. Right click on the shortcut and select properties
-13. Modify the target field by adding -PixelStreamingURL=ws://127.0.0.1:8888 (optionally add -RenderOffScreen so that the screen is not blocked by the UE5 app)
-14. Launch the signaling and the turn server through the NVIDIA Streaming Infrastructure repository
-15. Launch the UE5 app by double clicking on the shortcut created
+10. Once UE5 has opened, right click the green arrow to start pixel streaming making sure the signaling and the turn server are running
+
+To package the application:
+1. From the main menu in UE5 click Platforms > Windows > Package project
+2. Create a shortcut to the packaged application
+3. Right click on the shortcut and select properties
+4. Modify the target field by adding -PixelStreamingURL=ws://127.0.0.1:8888 (optionally add -RenderOffScreen so that the screen is not blocked by the UE5 app)
+5. Launch the signaling and the turn server through the NVIDIA Streaming Infrastructure repository
+6. Launch the UE5 app by double clicking on the shortcut created
