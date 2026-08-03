@@ -197,6 +197,7 @@ void UMyGameInstance::handleAudioEnd() {
 	message.chunkId = 0;
 
 	audioQueue.Enqueue(message);
+	SpeechState = ESpeechState::Idle;
 };
 
 // Emotion queue producer
@@ -291,6 +292,47 @@ void UMyGameInstance::handleHeader(int seq_id, int chunk_id, int length) {
 	};
 };
 
+UACEAudioCurveSourceComponent* UMyGameInstance::getAudioCurveSource(UObject* world) {
+	// Load the generated Metahuman class
+	UClass* MetaClass = Cast<UClass>(StaticLoadObject(UClass::StaticClass(), nullptr, TEXT("/Game/MetaHumans/mh/BP_mh.BP_mh")));
+
+	if (!MetaClass) {
+		UE_LOG(LogTemp, Warning, TEXT("Failed to load Metahuman class!"));
+		return nullptr;
+	};
+
+	// Access all the actors of the current world of the specified class
+	TArray<AActor*, FDefaultAllocator> out;
+	UGameplayStatics::GetAllActorsOfClass(world, MetaClass, out);
+
+	if (out.Num() == 0) {
+		UE_LOG(LogTemp, Warning, TEXT("No Metahuman actors found in the world!"));
+		return nullptr;
+	};
+
+	// Find the metahuman in the list of actors
+	for (AActor* actor : out) {
+		if (!actor) continue;		// Ignore if null
+		myActor = actor;
+		break;						// Found the first metahuman		
+	};
+
+	if (!myActor) {
+		UE_LOG(LogTemp, Warning, TEXT("No valid Metahuman actor found!"));
+		return nullptr;
+	};
+
+	// Access the audio ace component
+	UACEAudioCurveSourceComponent* consumer = Cast<UACEAudioCurveSourceComponent>(myActor->FindComponentByClass<UACEAudioCurveSourceComponent>());
+
+	if (!consumer) {
+		UE_LOG(LogTemp, Warning, TEXT("No ACEAudioCurveSourceComponent found on the Metahuman actor!"));
+		return nullptr;
+	}
+
+	return consumer;
+};
+
 void UMyGameInstance::tryDispatch(int id) {
 	// Check the sentence is the one processed
 	if (id != ActiveSequenceId) {
@@ -304,6 +346,11 @@ void UMyGameInstance::tryDispatch(int id) {
 		return;
 	}
 
+	if (SpeechState == ESpeechState::PlayingFiller) {
+		FACERuntimeModule::Get().CancelAnimationGeneration(getAudioCurveSource(GetWorld()));
+	}
+
+	SpeechState = ESpeechState::PlayingResponse;
 	passAudio(pending.buffer, GetWorld(), pending.emotion);
 	pending.buffer.Reset();
 
@@ -343,26 +390,6 @@ void UMyGameInstance::handleAudio(const void* audio, SIZE_T bytesRemaining, SIZE
 	// Clean up pendingAudio
 	pendingAudio.waiting = false;
 	pendingAudio.audio = TArray<uint8>();
-};
-
-UACEAudioCurveSourceComponent* UMyGameInstance::getAudioCurveSource(UObject* world) {
-	// Load the generated Metahuman class
-	UClass* MetaClass = Cast<UClass>(StaticLoadObject(UClass::StaticClass(), nullptr, TEXT("/Game/MetaHumans/mh/BP_mh.BP_mh")));
-
-	// Access all the actors of the current world of the specified class
-	TArray<AActor*, FDefaultAllocator> out;
-	UGameplayStatics::GetAllActorsOfClass(world, MetaClass, out);
-
-	// Find the metahuman in the list of actors
-	for (AActor* actor : out) {
-		if (!actor) continue;		// Ignore if null
-		myActor = actor;
-	}
-
-	// Access the audio ace component
-	UACEAudioCurveSourceComponent* consumer = Cast<UACEAudioCurveSourceComponent>(myActor->FindComponentByClass<UACEAudioCurveSourceComponent>());
-
-	return consumer;
 };
 
 void UMyGameInstance::passAudio(TArray<uint8> data, UObject* world, FEmotion emotion) {

@@ -85,6 +85,15 @@ struct FPendingSentence {
 	TArray<uint8> buffer;				// buffer for incoming chunks from Orpheus3B
 };
 
+UENUM(BlueprintType)
+enum class ESpeechState : uint8
+{
+	Idle UMETA(DisplayName = "Idle"),
+	PlayingFiller UMETA(DisplayName = "Playing Filler"),
+	PlayingResponse UMETA(DisplayName = "Playing Response")
+};
+
+
 UCLASS()
 class AVATARPROJECT_API UMyGameInstance : public UGameInstance, public FTickableGameObject
 {
@@ -98,6 +107,10 @@ public:
 	UPROPERTY(BlueprintAssignable, Category = "WebSockets")
 	FOnUserInput OnUserInput;
 
+	// App state
+	UPROPERTY(BlueprintReadWrite, Category = "Speech")
+	ESpeechState SpeechState = ESpeechState::Idle;
+
 	virtual void Init() override;
 	virtual void Shutdown() override;
 
@@ -109,7 +122,7 @@ private:
     // Replace the declaration at line 96 with the correct type
     UACEAudioCurveSourceComponent* getAudioCurveSource(UObject* world);
 	void endAudio(UObject* world);
-	AActor* myActor;
+	AActor* myActor = nullptr;
 	void handleHeader(int seq_id, int chunk_id, int length);
 	void produceEmotion(int id, map<string, float> emotions);
 	void consumeAudio();
