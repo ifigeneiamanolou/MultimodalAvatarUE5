@@ -85,15 +85,6 @@ struct FPendingSentence {
 	TArray<uint8> buffer;				// buffer for incoming chunks from Orpheus3B
 };
 
-UENUM(BlueprintType)
-enum class ESpeechState : uint8
-{
-	Idle UMETA(DisplayName = "Idle"),
-	PlayingFiller UMETA(DisplayName = "Playing Filler"),
-	PlayingResponse UMETA(DisplayName = "Playing Response")
-};
-
-
 UCLASS()
 class AVATARPROJECT_API UMyGameInstance : public UGameInstance, public FTickableGameObject
 {
@@ -101,15 +92,16 @@ class AVATARPROJECT_API UMyGameInstance : public UGameInstance, public FTickable
 
 public:
 
+	// Expose the delegates to the blueprints
 	UPROPERTY(BlueprintAssignable, Category = "WebSockets")
 	FOnClientConnected OnClientConnected;
 
 	UPROPERTY(BlueprintAssignable, Category = "WebSockets")
 	FOnUserInput OnUserInput;
 
-	// App state
-	UPROPERTY(BlueprintReadWrite, Category = "Speech")
-	ESpeechState SpeechState = ESpeechState::Idle;
+	// Expose the state of the audio to the blueprints
+	UFUNCTION(BlueprintPure, Category = "Interview")
+	bool IsInterviewAudioActive() const { return bInterviewAudioActive; }
 
 	virtual void Init() override;
 	virtual void Shutdown() override;
@@ -119,7 +111,6 @@ public:
 	virtual bool IsTickable() const override;
 private:
 	void passAudio(TArray<uint8> data, UObject* world, FEmotion emotion);
-    // Replace the declaration at line 96 with the correct type
     UACEAudioCurveSourceComponent* getAudioCurveSource(UObject* world);
 	void endAudio(UObject* world);
 	AActor* myActor = nullptr;
@@ -138,15 +129,16 @@ private:
 	TQueue<FEmotion, EQueueMode::Mpsc> emotionQueue;		// Queue of emotion parameters
 	map<int, FPendingSentence> myMap;						// Map of pending sentence
 
+	int ActiveSequenceId = 0;								// currently active sentence 
+	bool bUserStarted = false;								// Indicates whether the user has sent a message
+	bool bInterviewAudioActive = false;						// Indicates when the audio starts being dispatched to Audio2Face ie first chunk has arrived
+
+	// WebSocket server
+	TUniquePtr<IServerWebSocket> webServer;
+
 	// Avoid overfilling or draining too early
 	mutex mEmotion;
 	mutex mAudio;
 	condition_variable cvEmotion;
 	condition_variable cvAudio;
-
-	int ActiveSequenceId = 0;		// currently active sentence 
-	bool bUserStarted = false;      // Indicates whether the user has sent a message
-
-	// WebSocket server
-	TUniquePtr<IServerWebSocket> webServer;
 };

@@ -103,6 +103,7 @@ void UMyGameInstance::Init()
 			if (input == "[[DONE]]") {
 				UE_LOG(LogTemp, Display, TEXT("stream complete !"));
 				bUserStarted = false;
+				bInterviewAudioActive = false;
 				if (ActiveSequenceId != -1) {
 					endAudio(GetWorld());
 					ActiveSequenceId = -1;
@@ -197,7 +198,6 @@ void UMyGameInstance::handleAudioEnd() {
 	message.chunkId = 0;
 
 	audioQueue.Enqueue(message);
-	SpeechState = ESpeechState::Idle;
 };
 
 // Emotion queue producer
@@ -346,11 +346,7 @@ void UMyGameInstance::tryDispatch(int id) {
 		return;
 	}
 
-	if (SpeechState == ESpeechState::PlayingFiller) {
-		FACERuntimeModule::Get().CancelAnimationGeneration(getAudioCurveSource(GetWorld()));
-	}
-
-	SpeechState = ESpeechState::PlayingResponse;
+	bInterviewAudioActive = true;
 	passAudio(pending.buffer, GetWorld(), pending.emotion);
 	pending.buffer.Reset();
 
