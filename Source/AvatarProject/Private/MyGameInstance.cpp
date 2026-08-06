@@ -450,6 +450,7 @@ void UMyGameInstance::passAudio(TArray<uint8> data, UObject* world, FEmotion emo
 
 	// Format emotion parameters for current sentence
 	FAudio2FaceEmotion emotionParams;
+	emotionParams.bEnableEmotionOverride = true;
 	emotionParams.EmotionOverrides.Amazement = emotion.amazement;
 	emotionParams.EmotionOverrides.Anger = emotion.anger;
 	emotionParams.EmotionOverrides.Cheekiness = emotion.cheeckiness;

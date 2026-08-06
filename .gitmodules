@@ -1,0 +1,3 @@
+[submodule "Plugins/WebServerModule"]
+	path = Plugins/WebServerModule
+	url = https://github.com/h2ogit/UE5-ServerWebSocket.git
