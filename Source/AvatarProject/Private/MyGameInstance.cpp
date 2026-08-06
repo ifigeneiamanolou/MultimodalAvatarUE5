@@ -28,7 +28,6 @@ struct AudioHeaderMsg {
 	int length;
 };
 
-
 struct EmotionMsg {
 	string type;
 	int sentence_id;
@@ -85,7 +84,7 @@ void UMyGameInstance::Init()
 
 		// Handle incoming client messages
 		FNetWebSocketPacketReceivedCallBack messageCallback;
-		messageCallback.BindLambda([this](void* data, int32 size) {
+		messageCallback.BindLambda([this](void* data, int32 size, ENetWebSocketMessageType type) {
 			// Notify the blueprints
 			if (!(bUserStarted)) {
 				bUserStarted = true;
@@ -93,24 +92,17 @@ void UMyGameInstance::Init()
 			};
 
 			// Check if audio bytes are expected
-			if (pendingAudio.waiting) {
-				this->handleAudio(data, 0, size);
+			if (type == ENetWebSocketMessageType::Binary) {
+				UE_LOG(LogTemp, Display, TEXT("Audio data received for sentence %d of chunk %d"), pendingAudio.sequenceId, pendingAudio.chunkId);
+				this->handleAudio(data, size);
 				return;
 			};
 
 			// Otherwise parse incoming JSON string
 			string input(static_cast<const char*>(data), size);
 			if (input == "[[DONE]]") {
-				UE_LOG(LogTemp, Display, TEXT("stream complete !"));
-				bUserStarted = false;
-				bInterviewAudioActive = false;
-				if (ActiveSequenceId != -1) {
-					endAudio(GetWorld());
-					ActiveSequenceId = -1;
-				};
-				this->produceEmotion(-1, map<string, float>());
-				this->handleAudioEnd();
-
+				UE_LOG(LogTemp, Warning, TEXT("Stream complete !"));
+				handleAudioEnd();
 				return;
 			};
 
@@ -123,31 +115,31 @@ void UMyGameInstance::Init()
 			}
 
 			// Extract the type of the message
-			const string type = parsed.value("type", "");
-			if (type == "emotion") {
-				UE_LOG(LogTemp, Display, TEXT("Emotion received"));
+			const string typeJSON = parsed.value("type", "");
+			if (typeJSON == "emotion") {
 				try {
 					auto msg = parsed.get<EmotionMsg>();
+					UE_LOG(LogTemp, Display, TEXT("Emotion for sentence %d received"), msg.sentence_id);	
 					this->produceEmotion(msg.sentence_id, msg.predictions);
 				}
 				catch (const json::exception& e) {		// Handle missing key or type mismatch
 					UE_LOG(LogTemp, Warning, TEXT("Invalid json %s !"), UTF8_TO_TCHAR(e.what()));
 				};
 			}
-			else if (type == "audio_chunk") {
-				UE_LOG(LogTemp, Display, TEXT("Audion header received"));
+			else if (typeJSON == "audio_chunk") {
 				try {
 					auto msg = parsed.get<AudioHeaderMsg>();
+					UE_LOG(LogTemp, Display, TEXT("Audio header for sentence %d and chunk %d received"), msg.sentence_id, msg.chunk_index);
 					this->handleHeader(msg.sentence_id, msg.chunk_index, msg.length);
 				} 
 				catch (const json::exception& e) {		// Handle missing key or type mismatch
 					UE_LOG(LogTemp, Warning, TEXT("Invalid json %s !"), UTF8_TO_TCHAR(e.what()));
 				};
 			}
-			else if (type == "audio_end") {
-				UE_LOG(LogTemp, Display, TEXT("Audio for sentence ended"));
+			else if (typeJSON == "audio_end") {
 				try {
 					auto msg = parsed.get<AudioEndMsg>();
+					UE_LOG(LogTemp, Display, TEXT("Audio for sentence %d ended"), msg.sentence_id);
 					this->handleEnd(msg.sentence_id);
 				}
 				catch (const json::exception& e) {		// Handle missing key or type mismatch
@@ -186,18 +178,48 @@ void UMyGameInstance::Init()
 
 // Handle the end of a single sentence
 void UMyGameInstance::handleEnd(int seq_id) {
+	// Signal end of audio for the sentence
 	myMap[seq_id].audioEnded = true;
+
+	// Reset the pending audio
+	if (pendingAudio.sequenceId == seq_id) {
+		pendingAudio.chunkId = 0;
+		pendingAudio.sequenceId = 0;
+		pendingAudio.waiting = false;
+		pendingAudio.expected_bytes = 0;
+	}
+
+	// Flush remaining audio chunks
 	tryDispatch(seq_id);
+
+	// Move to the next sentence in the map if it exists
+	ActiveSequenceId++;
+	if (myMap.contains(ActiveSequenceId)) {
+		tryDispatch(ActiveSequenceId);
+	};
 };
 
 // Handle the end of all sentences in the current response
 void UMyGameInstance::handleAudioEnd() {
+	// Notify the emotion consumer to stop consuming
+	produceEmotion(-1, map<string, float>());
+
+	// Notify the audio consumer to stop consuming
 	FAudioMessage message;
 	message.audio = TArray<uint8>();
 	message.sequenceId = -1;
 	message.chunkId = 0;
-
 	audioQueue.Enqueue(message);
+
+	// Notify blueprints audio has ended
+	bUserStarted = false;
+	bInterviewAudioActive = false;
+
+	// Reset the active sequence id
+	ActiveSequenceId = 0;
+
+	// Clear the map of pending sentences
+	myMap.clear();
 };
 
 // Emotion queue producer
@@ -265,6 +287,7 @@ void UMyGameInstance::consumeAudio() {
 			FPendingSentence sentence;
 			sentence.firstChunkArrived = true;
 			sentence.buffer = message.audio;
+			sentence.audioEnded = false;
 			myMap.insert({ message.sequenceId, sentence });
 		}
 
@@ -275,26 +298,22 @@ void UMyGameInstance::consumeAudio() {
 
 // Updates pending audio class attribute using the headers received
 void UMyGameInstance::handleHeader(int seq_id, int chunk_id, int length) {
-	if (pendingAudio.waiting) {
-		UE_LOG(LogTemp, Warning, TEXT("Previous header still pending"));
-		return;
-	}
-
 	pendingAudio.chunkId = chunk_id;
 	pendingAudio.sequenceId = seq_id;
 	pendingAudio.waiting = true;
 	pendingAudio.expected_bytes = length;
 
-	// Update pending sentence if necessary
+	// Update map of pending sentence if necessary
 	if (myMap.find(seq_id) == myMap.end()) {
 		FPendingSentence sentence;
+		sentence.audioEnded = false;
 		myMap.insert({seq_id, sentence});
 	};
 };
 
 UACEAudioCurveSourceComponent* UMyGameInstance::getAudioCurveSource(UObject* world) {
 	// Load the generated Metahuman class
-	UClass* MetaClass = Cast<UClass>(StaticLoadObject(UClass::StaticClass(), nullptr, TEXT("/Game/MetaHumans/mh/BP_mh.BP_mh")));
+	UClass* MetaClass = Cast<UClass>(StaticLoadObject(UClass::StaticClass(), nullptr, TEXT("/Game/MetaHumans/mh/BP_mh.BP_mh_C")));
 
 	if (!MetaClass) {
 		UE_LOG(LogTemp, Warning, TEXT("Failed to load Metahuman class!"));
@@ -335,100 +354,128 @@ UACEAudioCurveSourceComponent* UMyGameInstance::getAudioCurveSource(UObject* wor
 
 void UMyGameInstance::tryDispatch(int id) {
 	// Check the sentence is the one processed
+	UE_LOG(LogTemp, Warning, TEXT("Trying to dispatch sentence %d"), id);
+
 	if (id != ActiveSequenceId) {
+		UE_LOG(LogTemp, Warning, TEXT("Different id for %d"), id);
 		return;
 	};
 
 	FPendingSentence& pending = myMap.at(id);
 
+	UE_LOG(LogTemp, Warning, TEXT("Dispatch state id=%d emotion=%d first=%d bytes=%d"),
+		id,
+		pending.emotionReady,
+		pending.firstChunkArrived,
+		pending.buffer.Num()
+	);
+
 	// Check both emotion and audio data are ready
 	if (!(pending.emotionReady && pending.firstChunkArrived)) {
+		UE_LOG(LogTemp, Warning, TEXT("Not both ready for sentence %d"), id);
 		return;
 	}
 
+	// Dispatch audio to Audio2Face
 	bInterviewAudioActive = true;
-	passAudio(pending.buffer, GetWorld(), pending.emotion);
+	passAudio(pending.buffer, GetWorld(), pending.emotion, pending.audioEnded);
+
+	// Ensure the pending buffer is cleared after dispatching to not resend the same audio chunks
 	pending.buffer.Reset();
 
 	if (pending.audioEnded) {
-		myMap.erase(id);
-		ActiveSequenceId++;
-		if (myMap.contains(ActiveSequenceId)) {
-			tryDispatch(ActiveSequenceId);
-		};
+		myMap.erase(id);   // safe to erase now — we've dispatched its final chunk
 	}
 };
 
 // Ensure that all data frames of a single chunk sent by Orpheus3B are accumulated in Audio2Face
-void UMyGameInstance::handleAudio(const void* audio, SIZE_T bytesRemaining, SIZE_T size) {
+void UMyGameInstance::handleAudio(const void* audio, SIZE_T size) {
 	if (!pendingAudio.waiting){
 		UE_LOG(LogTemp, Warning, TEXT("No pending header"));
 		return;
 	}
 
-	pendingAudio.audio.Append(static_cast<const uint8*>(audio), static_cast<int32>(size));
+	// Temporary buffer to hold the audio data
+	TArray<uint8> AudioData;
+	AudioData.Append(static_cast<const uint8*>(audio),size);
 
-	// Waiting for more data
-	if (bytesRemaining > 0) {
+	// Check for corrupted audio data
+	if (AudioData.Num() != pendingAudio.expected_bytes)
+	{
+		UE_LOG(LogTemp, Warning,
+			TEXT("Audio size mismatch. Expected %d bytes, received %d."),
+			pendingAudio.expected_bytes,
+			AudioData.Num());
 		return;
+	}
+	else {
+		UE_LOG(LogTemp, Display,
+			TEXT("Pushed audio chunk to the audio queue of size %d"),
+			pendingAudio.expected_bytes
+		);
 	};
 
 	// format audio data
 	FAudioMessage message;
-	message.audio = pendingAudio.audio;
+	message.audio = AudioData;
 	message.chunkId = pendingAudio.chunkId;
 	message.sequenceId = pendingAudio.sequenceId;
 
 	// push item to the queue
-	UE_LOG(LogTemp, Warning, TEXT("Pushing audio to the queue"));
 	audioQueue.Enqueue(message);
 
 	// Clean up pendingAudio
 	pendingAudio.waiting = false;
-	pendingAudio.audio = TArray<uint8>();
+	pendingAudio.expected_bytes = 0;	
 };
 
-void UMyGameInstance::passAudio(TArray<uint8> data, UObject* world, FEmotion emotion) {
+void UMyGameInstance::passAudio(TArray<uint8> data, UObject* world, FEmotion emotion, bool lastChunk) {
+	// Cast incoming data to int16 array
+	const int16* Samples = reinterpret_cast<const int16*>(data.GetData());
+	int32 NumSamples = data.Num() / sizeof(int16);
+
 	// Convert the array to TArray<float>
 	TArray<float> floatAudio;
-	floatAudio.SetNumUninitialized(data.Num());
-	for (int i = 0; i < data.Num(); i++) {
-		floatAudio[i] = data[i] / 32768.0f;
+	floatAudio.SetNum(NumSamples);
+	for (int i = 0; i < NumSamples; i++) {
+		floatAudio[i] = Samples[i] / 32768.0f;
 	};
 
 	// Access the audio ace component
 	UACEAudioCurveSourceComponent* consumer = getAudioCurveSource(world);
+	if (!consumer) {
+		UE_LOG(LogTemp, Error, TEXT("passAudio: no audio curve source found, dropping chunk"));
+		return;
+	}
+
+	// Format emotion parameters for current sentence
+	FAudio2FaceEmotion emotionParams;
+	emotionParams.EmotionOverrides.Amazement = emotion.amazement;
+	emotionParams.EmotionOverrides.Anger = emotion.anger;
+	emotionParams.EmotionOverrides.Cheekiness = emotion.cheeckiness;
+	emotionParams.EmotionOverrides.Disgust = emotion.disgust;
+	emotionParams.EmotionOverrides.Fear = emotion.fear;
+	emotionParams.EmotionOverrides.Grief = emotion.grief;
+	emotionParams.EmotionOverrides.Joy = emotion.joy;
+	emotionParams.EmotionOverrides.OutOfBreath = emotion.outOfBreath;
+	emotionParams.EmotionOverrides.Pain = emotion.pain;
+	emotionParams.EmotionOverrides.Sadness = emotion.sadness;
+
+	// Debugging logs
+	UE_LOG(LogTemp, Warning, TEXT("Passing audio to consumer with name %s"), *consumer->GetName());
+	UE_LOG(LogTemp, Warning, TEXT("Audio chunk size: %d samples, with inital unprocessed array size %d"), floatAudio.Num(), data.Num());
 
 	// Send the audio chunk to Audio2Face
 	FACERuntimeModule::Get().AnimateFromAudioSamples(
 		Cast<IACEAnimDataConsumer>(consumer),
-		MakeArrayView(floatAudio),		    // raw audio data in float format
-		1,									// number of channels
-		24000,								// sample rate			
-		false,								// last audio chunk
-		TOptional<FAudio2FaceEmotion>(),	// optional emotion parameters
-		nullptr,							// face parameters
-		FName("Default")					// A2F provider
-	);
-}
-
-void UMyGameInstance::endAudio(UObject* world) {
-	// Access the audio curve source component
-	UACEAudioCurveSourceComponent* consumer = getAudioCurveSource(world);
-	// Make an empty audio array
-	TArray<float> audioFloat = TArray<float>();
-
-	// Signal the end of audio to Audio2Face
-	FACERuntimeModule::Get().AnimateFromAudioSamples(
-		Cast<IACEAnimDataConsumer>(consumer),
-		MakeArrayView(audioFloat),			// empty audio data
-		1,									// number of channels
-		24000,								// sample rate			
-		true,								// last audio chunk
-		TOptional<FAudio2FaceEmotion>(),	// optional emotion parameters
-		nullptr,							// face parameters
-		FName("Default")					// A2F provider
-	);
+		MakeArrayView(floatAudio),							// raw audio data in float format
+		1,													// number of channels
+		24000,												// sample rate			
+		lastChunk,			 								// last audio chunk
+		TOptional<FAudio2FaceEmotion>(emotionParams),		// optional emotion parameters
+		nullptr,											// face parameters
+		FName("Default")									// A2F provider
+	);  
 }
 
 // Called every frame

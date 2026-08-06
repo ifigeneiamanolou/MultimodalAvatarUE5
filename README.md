@@ -21,7 +21,8 @@ To generate the UE5 project files the AvatarProject.uproject file in the root di
 # WebSocket server
 This project uses a modified version of UE5-ServerWebSocket by h2ogit, licensed under MIT to build the websocket server. This can be
 found under the Plugins/WebServerModule folder. The only change made in the source code of the above repository is in the 
-ServerWebSocket/Source/Private/ServerWebSocketSubsystem.cpp file in line 32 replacing = with "this" (deprecated feature).
+ServerWebSocket/Source/Private/ServerWebSocketSubsystem.cpp file in line 32 replacing = with "this" (deprecated feature). Also, the source
+code was modified to distinguish between incoming text data (JSON emotion and audio headers) and binary data (audio) using a custom enum structure.
 
 # Git LFS
 Git LFS is used to track large files, including .umap, .uasset and .dna files. These are tracked through the .gitattributes file in the root directory.

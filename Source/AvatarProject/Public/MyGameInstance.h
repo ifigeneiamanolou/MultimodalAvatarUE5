@@ -62,18 +62,17 @@ struct FEmotion {
 	int neutral;
 };
 
-struct FPendingAudio {
-	TArray<uint8> audio;
-	int sequenceId;					// id of the sentence
-	int chunkId;				    // id of the chunk
-	int expected_bytes;
+struct FPendingAudio { 
+	int sequenceId = -1;			    // id of the sentence
+	int chunkId = -1;				    // id of the chunk
+	int expected_bytes = 0;
 	bool waiting = false;
 };
 
 struct FAudioMessage {
 	TArray<uint8> audio;
-	int sequenceId;
-	int chunkId;
+	int sequenceId = -1;
+	int chunkId = -1;
 };
 
 struct FPendingSentence {
@@ -110,29 +109,28 @@ public:
 	virtual TStatId GetStatId() const override;
 	virtual bool IsTickable() const override;
 private:
-	void passAudio(TArray<uint8> data, UObject* world, FEmotion emotion);
+	void handleAudio(const void* audio, SIZE_T size);
+	void passAudio(TArray<uint8> data, UObject* world, FEmotion emotion, bool lastChunk);
     UACEAudioCurveSourceComponent* getAudioCurveSource(UObject* world);
-	void endAudio(UObject* world);
 	AActor* myActor = nullptr;
 	void handleHeader(int seq_id, int chunk_id, int length);
 	void produceEmotion(int id, map<string, float> emotions);
 	void consumeAudio();
 	void consumeEmotion();
-	void handleAudio(const void* audio, SIZE_T bytesRemaining, SIZE_T size);
 	void tryDispatch(int id);
 	void handleEnd(int seq_id);
 	void handleAudioEnd();
 
-	FPendingSentence pendingSentence;						// Currently incoming sentence
 	FPendingAudio pendingAudio;								// Currently incoming audio chunk
 	TQueue<FAudioMessage, EQueueMode::Mpsc> audioQueue;		// Queue of audio chunk
 	TQueue<FEmotion, EQueueMode::Mpsc> emotionQueue;		// Queue of emotion parameters
 	map<int, FPendingSentence> myMap;						// Map of pending sentence
 
-	int ActiveSequenceId = 0;								// currently active sentence 
+	int ActiveSequenceId = 0;								// currently active sentence in the map
 	bool bUserStarted = false;								// Indicates whether the user has sent a message
-	bool bInterviewAudioActive = false;						// Indicates when the audio starts being dispatched to Audio2Face ie first chunk has arrived
 
+	// Indicates when the audio starts being dispatched to Audio2Face ie first chunk has arrived to send signal for the fillers
+	bool bInterviewAudioActive = false;						
 	// WebSocket server
 	TUniquePtr<IServerWebSocket> webServer;
 
