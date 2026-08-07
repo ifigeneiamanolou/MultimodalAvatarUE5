@@ -45,6 +45,7 @@ struct AudioEndMsg {
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(AudioHeaderMsg, type, sentence_id, chunk_index, length);
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(EmotionMsg, type, sentence_id, sentence, emotion, predictions, maxProb);
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(AudioEndMsg, type, sentence_id);
+DEFINE_LOG_CATEGORY(LogTime);
 
 void UMyGameInstance::Init()
 {
@@ -87,10 +88,11 @@ void UMyGameInstance::Init()
 		// Handle incoming client messages
 		FNetWebSocketPacketReceivedCallBack messageCallback;
 		messageCallback.BindLambda([this](void* data, int32 size, ENetWebSocketMessageType type) {
-			// Notify the blueprints
+			// Notify the blueprints once the backend controller has send the first audio chunk / emotion parameters
 			if (!(bUserStarted)) {
 				bUserStarted = true;
 				OnUserInput.Broadcast();
+				StartTime = FPlatformTime::Seconds();
 			};
 
 			// Check if audio bytes are expected
@@ -104,6 +106,8 @@ void UMyGameInstance::Init()
 			string input(static_cast<const char*>(data), size);
 			if (input == "[[DONE]]") {
 				UE_LOG(LogTemp, Warning, TEXT("Stream complete !"));
+				double EndTime = FPlatformTime::Seconds();
+				UE_LOG(LogTime, Display, TEXT("Time until all the sentences are finished is %.3f ms"), (EndTime - StartTime) * 1000.0);
 				handleAudioEnd();
 				return;
 			};
@@ -121,7 +125,7 @@ void UMyGameInstance::Init()
 			if (typeJSON == "emotion") {
 				try {
 					auto msg = parsed.get<EmotionMsg>();
-					UE_LOG(LogTemp, Display, TEXT("Emotion for sentence %d received"), msg.sentence_id);	
+					UE_LOG(LogTemp, Display, TEXT("Emotion for sentence %d received"), msg.sentence_id);
 					this->produceEmotion(msg.sentence_id, msg.predictions);
 				}
 				catch (const json::exception& e) {		// Handle missing key or type mismatch
@@ -133,7 +137,7 @@ void UMyGameInstance::Init()
 					auto msg = parsed.get<AudioHeaderMsg>();
 					UE_LOG(LogTemp, Display, TEXT("Audio header for sentence %d and chunk %d received"), msg.sentence_id, msg.chunk_index);
 					this->handleHeader(msg.sentence_id, msg.chunk_index, msg.length);
-				} 
+				}
 				catch (const json::exception& e) {		// Handle missing key or type mismatch
 					UE_LOG(LogTemp, Warning, TEXT("Invalid json %s !"), UTF8_TO_TCHAR(e.what()));
 				};
@@ -142,6 +146,7 @@ void UMyGameInstance::Init()
 				try {
 					auto msg = parsed.get<AudioEndMsg>();
 					UE_LOG(LogTemp, Display, TEXT("Audio for sentence %d ended"), msg.sentence_id);
+					UE_LOG(LogTime, Display, TEXT("Time for sentence %d data to be received : %.3f ms"), msg.sentence_id, (FPlatformTime::Seconds() - StartTime) * 1000.0);
 					this->handleEnd(msg.sentence_id);
 				}
 				catch (const json::exception& e) {		// Handle missing key or type mismatch
@@ -257,6 +262,7 @@ void UMyGameInstance::produceEmotion(int id, map<string, float> emotions) {
 
 	// push item to the queue
 	emotionQueue.Enqueue(emotion);
+	UE_LOG(LogTime, Display, TEXT("Time until emotion %d is placed into the queue is %.3f ms"), emotion.sequenceId, (FPlatformTime::Seconds() - StartTime) * 1000.0);
 };
 
 // Emotion queue consumer
@@ -279,6 +285,7 @@ void UMyGameInstance::consumeEmotion() {
 			sentence.emotion = emotion;
 			myMap.insert({ emotion.sequenceId, sentence });
 		}
+		UE_LOG(LogTime, Display, TEXT("Time until emotion %d is consumed from the queue is %.3f ms"), emotion.sequenceId, (FPlatformTime::Seconds() - StartTime) * 1000.0);
 	}
 };
 
@@ -290,6 +297,14 @@ void UMyGameInstance::consumeAudio() {
 		if (message.sequenceId == -1) {
 			break;
 		};
+
+		if (message.chunkId == 0)
+		{
+			UE_LOG(LogTime, Display,
+				TEXT("Time until first audio chunk of sentence %d is consumed from the queue: %.3f ms"),
+				message.sequenceId,
+				(FPlatformTime::Seconds() - StartTime) * 1000.0);
+		}
 
 		// Update sentence map if necessary
 		if (myMap.contains(message.sequenceId)) {
@@ -395,7 +410,7 @@ void UMyGameInstance::tryDispatch(int id) {
 
 	// Dispatch audio to Audio2Face
 	bInterviewAudioActive = true;
-	passAudio(pending.buffer, GetWorld(), pending.emotion, pending.audioEnded);
+	passAudio(pending.buffer, GetWorld(), pending.emotion, pending.audioEnded, id);
 
 	// Ensure the pending buffer is cleared after dispatching to not resend the same audio chunks
 	pending.buffer.Reset();
@@ -434,6 +449,14 @@ void UMyGameInstance::handleAudio(const void* audio, SIZE_T size) {
 	message.chunkId = pendingAudio.chunkId;
 	message.sequenceId = pendingAudio.sequenceId;
 
+	if (message.chunkId == 0)
+	{
+		UE_LOG(LogTime, Display,
+			TEXT("Time until first audio chunk of sentence %d is placed into the queue: %.3f ms"),
+			message.sequenceId,
+			(FPlatformTime::Seconds() - StartTime) * 1000.0);
+	}
+
 	// push item to the queue
 	audioQueue.Enqueue(message);
 
@@ -442,7 +465,17 @@ void UMyGameInstance::handleAudio(const void* audio, SIZE_T size) {
 	pendingAudio.expected_bytes = 0;	
 };
 
-void UMyGameInstance::passAudio(TArray<uint8> data, UObject* world, FEmotion emotion, bool lastChunk) {
+void UMyGameInstance::passAudio(TArray<uint8> data, UObject* world, FEmotion emotion, bool lastChunk, int id) {
+	if (lastChunk) {
+		UE_LOG(LogTime, Display, TEXT("Time until sentence %d has dispatched the last chunk to A2F is %.3f ms"), id, (FPlatformTime::Seconds() - StartTime) * 1000.0);
+		firstChunk = true;
+	}
+
+	if (firstChunk) {
+		UE_LOG(LogTime, Display, TEXT("Time until sentence %d has dispatched the first chunk to A2F is %.3f ms"), id, (FPlatformTime::Seconds() - StartTime) * 1000.0);
+		firstChunk = false;
+	}
+
 	// Cast incoming data to int16 array
 	const int16* Samples = reinterpret_cast<const int16*>(data.GetData());
 	int32 NumSamples = data.Num() / sizeof(int16);
