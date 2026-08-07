@@ -222,7 +222,7 @@ void UMyGameInstance::handleAudioEnd() {
 	myMap.clear();
 };
 
-void ResetSessionState()
+void UMyGameInstance::ResetSessionState()
 {
 	// Reset sentence/dispatch tracking
 	ActiveSequenceId = 0;

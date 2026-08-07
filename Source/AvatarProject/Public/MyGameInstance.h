@@ -100,11 +100,11 @@ public:
 
 	// Expose the state of the audio to the blueprints
 	UFUNCTION(BlueprintPure, Category = "Interview")
+	bool IsInterviewAudioActive() const { return bInterviewAudioActive; }
 
 	// Reset the state of the game instance to prepare for a new session
 	UFUNCTION(BlueprintCallable, Category = "Interview")
 	void ResetSessionState();
-	bool IsInterviewAudioActive() const { return bInterviewAudioActive; }
 
 	virtual void Init() override;
 	virtual void Shutdown() override;
