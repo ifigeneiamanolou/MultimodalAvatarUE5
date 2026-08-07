@@ -29,10 +29,14 @@ code was modified to distinguish between incoming text data (JSON emotion and au
 Git LFS is used to track large files, including .umap, .uasset and .dna files. These are tracked through the .gitattributes file in the root directory.
 
 # Plugins
-If one wishes to package the application or edit it within UE5 the NVIDIA ACE Plugin has to be manually included by following these steps:
+If one wishes to package the application or edit it within UE5 the NVIDIA ACE Plugin and the WebServerModule submodule have to be manually included by following these steps:
 1. Download Audio2Face3D Unreal Engine 5.6 plugin through this page https://developer.nvidia.com/ace-for-games#section-getting-started
 2. Copy the folder NV_ACE_REFERENCE inside the zip downloaded
 3. Paste it under Plugins folder in the root directory
+4. Run the following command to include submodules:
+   ```bash
+	git submodule init
+   ```
 
 # Developer Instructions
 After cloning the repository and installing NVIDIA ACE, you can edit the code and test the open following these steps:
