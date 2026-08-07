@@ -9,8 +9,9 @@ This repository contains the UE5 files used to build the Metahuman application. 
 
 The latter handles the following:
 * creates a web socket server in port 7865 using C library libwebsockets under the hood
-* collects audio and emotion data send by the application in the queues and consumes them in a map
+* collects audio and emotion data send by the application in two queues and consumes them in a map of pending sentences
 * once both emotion and audio for a given sentence are available they are dispatched to Audio2Face
+* sends a signal to UE5 blueprints to stop all fillers once the first facial expressions are detected 
 
 # Source code
 The source code can be found under the Source/AvatarProject folder in the files:
@@ -20,8 +21,8 @@ To generate the UE5 project files the AvatarProject.uproject file in the root di
 
 # WebSocket server
 This project uses a modified version of UE5-ServerWebSocket by h2ogit, licensed under MIT to build the websocket server. This can be
-found under the Plugins/WebServerModule folder. The only change made in the source code of the above repository is in the 
-ServerWebSocket/Source/Private/ServerWebSocketSubsystem.cpp file in line 32 replacing = with "this" (deprecated feature). Also, the source
+found under the Plugins/WebServerModule folder and is added as a git submodule of a forked repository. One change made in the source code of the above repository
+is in the ServerWebSocket/Source/Private/ServerWebSocketSubsystem.cpp file in line 32 replacing = with "this" (deprecated feature). Also, the source
 code was modified to distinguish between incoming text data (JSON emotion and audio headers) and binary data (audio) using a custom enum structure.
 
 # Git LFS
@@ -34,10 +35,10 @@ If one wishes to package the application or edit it within UE5 the NVIDIA ACE Pl
 3. Paste it under Plugins folder in the root directory
 
 # Developer Instructions
-After cloning the repository and installing NVIDIA ACE and Unreal Engine 5.6, you can edit the code and test the open following these steps:
+After cloning the repository and installing NVIDIA ACE, you can edit the code and test the open following these steps:
 1. Ensure through VS Installer that all necessary packages are installed through this guide:
 https://dev.epicgames.com/documentation/unreal-engine/setting-up-visual-studio-for-unreal-engine?application_version=4.27
-2. Ensure UE5.6 is installed
+2. Ensure UE5.6 is installed with the option "Metahuman Core Creator Data" is checked
 3. Open the folder cloned and right click on AvatarProject.uproject and then Generate Visual Studio project files
 4. Open the .sln file generated
 5. If prompted with the message "The solution contains packages with vulnerabilities" click on "manage nuget packages", locate the package "Magick-NET.Q16-HDRI-AnyCPU" and switch verson 14.7 with 14.15
@@ -48,7 +49,8 @@ and that we are in Development mode for Win64
 9. Right click again and select Debug > Start new instance (this will open uE5)
 10. Once UE5 has opened, right click the green arrow to start pixel streaming making sure the signaling and the turn server are running
 
-To package the application:
+# Packaging the application
+To package the applicatio for Windows follow these steps:
 1. From the main menu in UE5 click Platforms > Windows > Package project
 2. Create a shortcut to the packaged application
 3. Right click on the shortcut and select properties
