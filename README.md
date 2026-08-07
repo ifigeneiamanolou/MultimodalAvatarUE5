@@ -49,7 +49,12 @@ and that we are in Development mode for Win64
 9. Right click again and select Debug > Start new instance (this will open uE5)
 10. Once UE5 has opened, right click the green arrow to start pixel streaming making sure the signaling and the turn server are running
 
-# Packaging the application
+### Solving error related to missing "Generate project files" option
+1. Locate the file UnrealVersionSelector.exe in the folder C:\Program Files\Epic Games\UE_5.6\Engine\Binaries\Win64
+2. If not present, look into C:\Program Files\Epic Games\Launcher\Engine\Binaries\Win64 and copy it to the previous folder
+3. Run the script as an administrator using the "-register" option
+
+## Packaging the application
 To package the applicatio for Windows follow these steps:
 1. From the main menu in UE5 click Platforms > Windows > Package project
 2. Create a shortcut to the packaged application
@@ -57,3 +62,77 @@ To package the applicatio for Windows follow these steps:
 4. Modify the target field by adding -PixelStreamingURL=ws://127.0.0.1:8888 (optionally add -RenderOffScreen so that the screen is not blocked by the UE5 app)
 5. Launch the signaling and the turn server through the NVIDIA Streaming Infrastructure repository
 6. Launch the UE5 app by double clicking on the shortcut created
+
+## Setting up the signaling server
+The signaling server is part of the Epic Games Pixel Streaming Infrastructure and it allows the UE5 application to stream its content to a web browser. Also, a STUN server 
+is needed to identify the public IP addresses of the signaling server and the frontend server, as well as a TURN server, in case on of the two servers is behind a NAT or a firewall.
+1. Clone the repository using this link : https://github.com/EpicGames/PixelStreamingInfrastructure.git
+2. Navigate to the folder SignalingWebServer/platform_scripts/cmd and run the setup.bat file
+3. Once the above has finished, run the start_with_turn.bat file to start the servers
+
+## Setting up the Audio2Face server
+1.	Generate an NGC API key in the NVIDIA site and save it as an environment variable in 
+   ```bash
+	export NGC_API_KEY = <value>
+   ```
+2.	Log in NGC registry
+   ```bash
+	echo "$NGC_API_KEY" | docker login nvcr.io --username '$oauthtoken' --password-stdin
+   ```
+
+3.	Install the credential helper and add an execution permission  
+   ```bash
+	wget -O docker-credential-secretservice https://github.com/docker/docker-credential-helpers/releases/download/v0.8.0/docker-credential-secretservice-v0.8.0.linux-amd64
+	chmod +x docker-credential-secretservice
+	sudo mv docker-credential-secretservice /usr/local/bin/
+   ```
+4.	Configure ~/.docker/config.json to only contain the «auths» key with its initial value along  (the directory has to be manually created)
+5.	Install libsecret-1-0
+6.	Log out from docker with docker logout
+7.	Log in again with docker login
+5.	Install the NVIDIA Container toolkit and configure Docker (guide: https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html)
+6.	Make a directory to place configuration YAML files needed for the TRT engine which will be mounted to a Docker volume at /mnt/configs
+   ```bash
+	mkdir -p ~/.cache/audio2face-3d-configs
+	export LOCAL_CONFIGS=~/.cache/audio2face-3d-configs
+   ```
+7.	Redirect to that directory and enter custom entries in those files (files needed are advanced_config.yaml, deployment_config.yaml and james_stylization_config.yaml
+   ```bash
+	cd $LOCAL_CONFIGS
+	nano <file_name>.yaml
+   ```
+8.	Configure a local cache directory for the model with the appropriate permissions
+   ```bash
+	mkdir -p ~/.cache/audio2face-3d
+	chmod 755 ~/.cache/audio2face-3d
+	export LOCAL_NIM_CACHE=~/.cache/audio2face-3d
+   ```
+9.	Run the docker container with GPU support and host network access (use -p for specific port mappings) with model caching, use of our custom configurations and stopping of downloaded TRT engines
+   ```bash
+	docker run -it --name audio2face-3d \
+	 --gpus all \
+	 --network=host \
+	 --entrypoint /bin/bash -w /opt/nvidia/a2f_pipeline \
+	 -e NIM_SKIP_A2F_START=true \
+	 -e NIM_DISABLE_MODEL_DOWNLOAD=true \
+	 -e NGC_API_KEY=$NGC_API_KEY \
+	 -v "$LOCAL_NIM_CACHE:/tmp/a2x" \
+	 -v "$LOCAL_CONFIGS:/mnt/configs/" \
+	nvcr.io/nim/nvidia/audio2face-3d:2.0
+   ```
+(-rm was removed to retain the container once we stop running it). 
+
+
+## Starting the Audio2Face server
+1. Start the container with
+   ```bash
+	docker start audio2face-3d
+   ```
+2. Enter the container shell with 
+   ```bash
+	docker attach audio2face-3d
+   ```
+3. Start the server by running 
+   ```bash
+	/usr/local/bin/a2f_pipeline.run_
+   ```
