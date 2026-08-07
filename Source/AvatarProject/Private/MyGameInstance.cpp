@@ -63,8 +63,10 @@ void UMyGameInstance::Init()
 		return;
 	}
 
-	// Create a web socket server
-	webServer = Module->CreateServer();
+	// Create a web socket server if not already available
+	if (!(webServer)) {
+		webServer = Module->CreateServer();
+	};
 
 	// Initialize the server and start listening for messages
 	uint32 port = 7865;
