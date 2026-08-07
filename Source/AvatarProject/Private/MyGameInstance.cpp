@@ -192,7 +192,12 @@ void UMyGameInstance::handleEnd(int seq_id) {
 	}
 
 	// Flush remaining audio chunks
-	tryDispatch(seq_id);
+	if (ActiveSequenceId == seq_id) {
+		tryDispatch(seq_id);
+	}
+	else {
+		UE_LOG(LogTemp, Display, TEXT("Audio has finished before emotion !!"));
+	}
 
 	// Move to the next sentence in the map if it exists
 	ActiveSequenceId++;
@@ -203,16 +208,6 @@ void UMyGameInstance::handleEnd(int seq_id) {
 
 // Handle the end of all sentences in the current response
 void UMyGameInstance::handleAudioEnd() {
-	// Notify the emotion consumer to stop consuming
-	produceEmotion(-1, map<string, float>());
-
-	// Notify the audio consumer to stop consuming
-	FAudioMessage message;
-	message.audio = TArray<uint8>();
-	message.sequenceId = -1;
-	message.chunkId = 0;
-	audioQueue.Enqueue(message);
-
 	// Notify blueprints audio has ended
 	bUserStarted = false;
 	bInterviewAudioActive = false;
@@ -224,8 +219,7 @@ void UMyGameInstance::handleAudioEnd() {
 	myMap.clear();
 };
 
-void UMyGameInstance::ResetSessionState()
-{
+void UMyGameInstance::ResetSessionState(){
 	// Reset sentence/dispatch tracking
 	ActiveSequenceId = 0;
 	myMap.clear();
@@ -313,7 +307,9 @@ void UMyGameInstance::consumeAudio() {
 		}
 
 		// Try dispatching audio from the map
-		tryDispatch(message.sequenceId);
+		if (ActiveSequenceId == message.sequenceId) {
+			tryDispatch(message.sequenceId);
+		};
 	}
 };
 
@@ -403,10 +399,6 @@ void UMyGameInstance::tryDispatch(int id) {
 
 	// Ensure the pending buffer is cleared after dispatching to not resend the same audio chunks
 	pending.buffer.Reset();
-
-	if (pending.audioEnded) {
-		myMap.erase(id);   // safe to erase now — we've dispatched its final chunk
-	}
 };
 
 // Ensure that all data frames of a single chunk sent by Orpheus3B are accumulated in Audio2Face
@@ -424,7 +416,7 @@ void UMyGameInstance::handleAudio(const void* audio, SIZE_T size) {
 	if (AudioData.Num() != pendingAudio.expected_bytes)
 	{
 		UE_LOG(LogTemp, Warning,
-			TEXT("Audio size mismatch. Expected %d bytes, received %d."),
+			TEXT("Audio size mismatch. Expected %d bytes, received %d bytes."),
 			pendingAudio.expected_bytes,
 			AudioData.Num());
 		return;
