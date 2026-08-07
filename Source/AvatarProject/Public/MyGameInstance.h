@@ -100,6 +100,10 @@ public:
 
 	// Expose the state of the audio to the blueprints
 	UFUNCTION(BlueprintPure, Category = "Interview")
+
+	// Reset the state of the game instance to prepare for a new session
+	UFUNCTION(BlueprintCallable, Category = "Interview")
+	void ResetSessionState();
 	bool IsInterviewAudioActive() const { return bInterviewAudioActive; }
 
 	virtual void Init() override;
@@ -134,7 +138,7 @@ private:
 	// WebSocket server
 	TUniquePtr<IServerWebSocket> webServer;
 
-	// Avoid overfilling or draining too early
+	// Avoid overfilling or draining too early TO ADD IN CPP
 	mutex mEmotion;
 	mutex mAudio;
 	condition_variable cvEmotion;

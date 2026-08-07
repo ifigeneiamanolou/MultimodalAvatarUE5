@@ -222,6 +222,25 @@ void UMyGameInstance::handleAudioEnd() {
 	myMap.clear();
 };
 
+void ResetSessionState()
+{
+	// Reset sentence/dispatch tracking
+	ActiveSequenceId = 0;
+	myMap.clear();
+
+	// Reset pending audio state
+	pendingAudio.waiting = false;
+	pendingAudio.expected_bytes = 0;
+	pendingAudio.chunkId = 0;
+	pendingAudio.sequenceId = 0;
+
+	// Reset session flags
+	bUserStarted = false;
+	bInterviewAudioActive = false;
+
+	UE_LOG(LogTemp, Display, TEXT("Session state reset for new pixel streaming viewer"));
+}
+
 // Emotion queue producer
 void UMyGameInstance::produceEmotion(int id, map<string, float> emotions) {
 	// format emotion item
