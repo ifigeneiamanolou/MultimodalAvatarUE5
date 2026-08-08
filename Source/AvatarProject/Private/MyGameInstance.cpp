@@ -201,14 +201,8 @@ void UMyGameInstance::handleEnd(int seq_id) {
 		tryDispatch(seq_id);
 	}
 	else {
-		UE_LOG(LogTemp, Display, TEXT("Audio has finished before emotion !!"));
+		UE_LOG(LogTemp, Display, TEXT("Sentence %d ended before becoming active (still on sentence %d)"), seq_id, ActiveSequenceId);
 	}
-
-	// Move to the next sentence in the map if it exists
-	ActiveSequenceId++;
-	if (myMap.contains(ActiveSequenceId)) {
-		tryDispatch(ActiveSequenceId);
-	};
 };
 
 // Handle the end of all sentences in the current response
@@ -285,6 +279,12 @@ void UMyGameInstance::consumeEmotion() {
 			sentence.emotion = emotion;
 			myMap.insert({ emotion.sequenceId, sentence });
 		}
+		
+		// Used in case emotion comes after orpheus finishes sending all audio chunks
+		if (ActiveSequenceId == emotion.sequenceId) {
+			tryDispatch(emotion.sequenceId);
+		}
+
 		UE_LOG(LogTime, Display, TEXT("Time until emotion %d is consumed from the queue is %.3f ms"), emotion.sequenceId, (FPlatformTime::Seconds() - StartTime) * 1000.0);
 	}
 };
@@ -393,8 +393,15 @@ void UMyGameInstance::tryDispatch(int id) {
 		return;
 	};
 
+	// Check the sentence is contained in the map
+	if (!myMap.contains(id)) {
+		UE_LOG(LogTemp, Warning, TEXT("tryDispatch called for id %d not in map (already dispatched?)"), id);
+		return;
+	}
+
 	FPendingSentence& pending = myMap.at(id);
 
+	// Print the dispatch state for debugging
 	UE_LOG(LogTemp, Warning, TEXT("Dispatch state id=%d emotion=%d first=%d bytes=%d"),
 		id,
 		pending.emotionReady,
@@ -408,12 +415,26 @@ void UMyGameInstance::tryDispatch(int id) {
 		return;
 	}
 
+	// Nothing new to send and not the final flush — nothing to do yet
+	if (pending.buffer.Num() == 0 && !pending.audioEnded) {
+		return;
+	}
+
 	// Dispatch audio to Audio2Face
 	bInterviewAudioActive = true;
 	passAudio(pending.buffer, GetWorld(), pending.emotion, pending.audioEnded, id);
 
 	// Ensure the pending buffer is cleared after dispatching to not resend the same audio chunks
 	pending.buffer.Reset();
+
+	if (pending.audioEnded) {
+		// This sentence is genuinely fully dispatched now — safe to advance and clean up
+		myMap.erase(id);
+		ActiveSequenceId++;
+		if (myMap.contains(ActiveSequenceId)) {
+			tryDispatch(ActiveSequenceId);   // catches up immediately if the next sentence already ended too
+		}
+	}
 };
 
 // Ensure that all data frames of a single chunk sent by Orpheus3B are accumulated in Audio2Face
