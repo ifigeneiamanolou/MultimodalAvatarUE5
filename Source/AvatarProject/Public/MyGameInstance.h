@@ -43,6 +43,7 @@
 // Delegates to notify the blueprints that a client is connected / sending text
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnClientConnected);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnUserInput);
+DECLARE_LOG_CATEGORY_EXTERN(LogTime, Log, All);
 
 using namespace std;
 
@@ -114,7 +115,7 @@ public:
 	virtual bool IsTickable() const override;
 private:
 	void handleAudio(const void* audio, SIZE_T size);
-	void passAudio(TArray<uint8> data, UObject* world, FEmotion emotion, bool lastChunk);
+	void passAudio(TArray<uint8> data, UObject* world, FEmotion emotion, bool lastChunk, int id);
     UACEAudioCurveSourceComponent* getAudioCurveSource(UObject* world);
 	AActor* myActor = nullptr;
 	void handleHeader(int seq_id, int chunk_id, int length);
@@ -143,4 +144,8 @@ private:
 	mutex mAudio;
 	condition_variable cvEmotion;
 	condition_variable cvAudio;
+
+	// Time data
+	bool firstChunk = true;
+	double StartTime;
 };
