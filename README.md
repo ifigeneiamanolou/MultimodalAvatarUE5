@@ -53,7 +53,7 @@ and that we are in Development mode for Win64
 9. Right click again and select Debug > Start new instance (this will open uE5)
 10. Once UE5 has opened, right click the green arrow to start pixel streaming making sure the signaling and the turn server are running
 
-### Solving error related to missing "Generate project files" option
+## Solving error related to missing "Generate project files" option
 1. Locate the file UnrealVersionSelector.exe in the folder C:\Program Files\Epic Games\UE_5.6\Engine\Binaries\Win64
 2. If not present, look into C:\Program Files\Epic Games\Launcher\Engine\Binaries\Win64 and copy it to the previous folder
 3. Run the script as an administrator using the "-register" option
