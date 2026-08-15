@@ -145,7 +145,7 @@ private:
 	condition_variable cvEmotion;
 	condition_variable cvAudio;
 
-	// time data
+	// Time data
+	bool firstChunk = true;
 	double StartTime;
-	bool firstChunk = true;		// indicates whether this is the first chunk to dispatch to A2F from a sentence
 };
