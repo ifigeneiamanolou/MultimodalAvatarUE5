@@ -72,9 +72,6 @@ void UMyGameInstance::Init()
 	// Initialize the server and start listening for messages
 	uint32 port = 7865;
 	bool wbSuccess = webServer->Init(port, FNetWebSocketClientConnectedCallBack::CreateLambda([this](INetWebSocket* connectedSocket) {
-		// Notify blueprints a user was connected
-		OnClientConnected.Broadcast();
-
 		// Handle client connections
 		sockaddr_in* client = connectedSocket->GetRemoteAddr();
 		FString ipv4 = "";   // client ipv4 address
@@ -91,7 +88,6 @@ void UMyGameInstance::Init()
 			// Notify the blueprints once the backend controller has send the first audio chunk / emotion parameters
 			if (!(bUserStarted)) {
 				bUserStarted = true;
-				OnUserInput.Broadcast();
 				StartTime = FPlatformTime::Seconds();
 			};
 
@@ -104,6 +100,10 @@ void UMyGameInstance::Init()
 
 			// Otherwise parse incoming JSON string
 			string input(static_cast<const char*>(data), size);
+			if (input == "[[FILLER]]") {
+				OnUserInput.Broadcast();		// Notify the level blueprint to start a filler animation on the current metahuman
+			};
+
 			if (input == "[[DONE]]") {
 				UE_LOG(LogTemp, Warning, TEXT("Stream complete !"));
 				double EndTime = FPlatformTime::Seconds();

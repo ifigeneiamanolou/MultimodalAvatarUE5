@@ -10,17 +10,23 @@
 	generated in a sentence basis). The need for a map arises to handle the scenario the python backend generates audio and emotion data faster than
 	this is sent to Audio2Face. Whenever an audio chunk is inserted in the map, a method is called that tries to dispatch the audio data to 
 	Audio2Face, checking that the first audio chunk has actually arrived, as well as emotion metadata. Then, it sents the contents of the audio 
-	buffer to Audio2Face and clears it. In case the audio for this sentence has ended, we move on to ActiveSequenceId. The following are assumed by
+	buffer to Audio2Face and clears it. In case the audio for this sentence has ended, we increment ActiveSequenceId. The following are assumed by
 	the python backend:
 
 	1) only one type of data is coming (audio, headers or emotion) using an asyncio lock
 	2) only once python backend has sent all audio and emotion data (including end information) for one sentence can it start sending data for the
 	next sentence using an asyncio TaskGroup
 
-	To enable communication between the Uvicorn backend client and the UE5 application, a web socket server is rendered at port 7865. This means that in the 
-	security group of the AWS Windows instance TCP port 7865 needs to be open to allow for incoming traffic from the Uvicorn client. SImilarly, in Windows 
-	firewall port 7865 needs to be open in the outbound rules in the local computer used to run the Uvicorn server, as well as in the inbound rules in the
-	Windows EC2 instance.
+	To enable communication between the Uvicorn backend client and the UE5 application, a web socket server is rendered at port 7865 powered thrpugh the 
+	libwebsockets C library. This means that in the security group of the AWS Windows instance TCP port 7865 needs to be open to allow for incoming traffic 
+	from the Uvicorn client. SImilarly, in Windows firewall port 7865 needs to be open in the outbound rules in the local computer used to run the Uvicorn 
+	server, as well as in the inbound rules in the Windows EC2 instance.
+
+	To the blueprints we only expose:
+
+	1) The function resetSessionState() to reset all variables (for example the map of pending sentences) once a new user connects via pixel streaming
+	2) a property FOnUserInput to notify the blueprint to play a cached filler in the form of an animation to the metahuman (this is triggered by the Python
+	ackend right before making an NLP call to OpenRouter
 	 
 */
 #include "CoreMinimal.h"
@@ -40,9 +46,10 @@
 #include "MyGameInstance.generated.h"
 
 
-// Delegates to notify the blueprints that a client is connected / sending text
-DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnClientConnected);
+// Delegates to notify the blueprints that a filler should start
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnUserInput);
+
+// Custom log message type to debug time delays
 DECLARE_LOG_CATEGORY_EXTERN(LogTime, Log, All);
 
 using namespace std;
@@ -91,17 +98,9 @@ class AVATARPROJECT_API UMyGameInstance : public UGameInstance, public FTickable
 	GENERATED_BODY()
 
 public:
-
 	// Expose the delegates to the blueprints
 	UPROPERTY(BlueprintAssignable, Category = "WebSockets")
-	FOnClientConnected OnClientConnected;
-
-	UPROPERTY(BlueprintAssignable, Category = "WebSockets")
 	FOnUserInput OnUserInput;
-
-	// Expose the state of the audio to the blueprints
-	UFUNCTION(BlueprintPure, Category = "Interview")
-	bool IsInterviewAudioActive() const { return bInterviewAudioActive; }
 
 	// Reset the state of the game instance to prepare for a new session
 	UFUNCTION(BlueprintCallable, Category = "Interview")
@@ -132,10 +131,11 @@ private:
 	map<int, FPendingSentence> myMap;						// Map of pending sentence
 
 	int ActiveSequenceId = 0;								// currently active sentence in the map
-	bool bUserStarted = false;								// Indicates whether the user has sent a message
+	bool bUserStarted = false;								// Indicates whether the user has sent a message to start measuring the time
 
 	// Indicates when the audio starts being dispatched to Audio2Face ie first chunk has arrived to send signal for the fillers
-	bool bInterviewAudioActive = false;						
+	bool bInterviewAudioActive = false;	
+
 	// WebSocket server
 	TUniquePtr<IServerWebSocket> webServer;
 
