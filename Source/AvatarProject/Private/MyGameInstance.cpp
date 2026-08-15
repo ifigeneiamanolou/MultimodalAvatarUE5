@@ -322,9 +322,7 @@ void UMyGameInstance::consumeAudio() {
 		}
 
 		// Try dispatching audio from the map
-		if (ActiveSequenceId == message.sequenceId) {
-			tryDispatch(message.sequenceId);
-		};
+		tryDispatch(message.sequenceId);
 	}
 };
 
@@ -480,6 +478,7 @@ void UMyGameInstance::handleAudio(const void* audio, SIZE_T size) {
 
 	// push item to the queue
 	audioQueue.Enqueue(message);
+
 
 	// Clean up pendingAudio
 	pendingAudio.waiting = false;
