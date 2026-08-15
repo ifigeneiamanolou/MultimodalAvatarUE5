@@ -1,6 +1,7 @@
 # Overview
 
-This repository contains the UE5 files used to build the Metahuman application. It contains the following:
+This repository contains the UE5 files used to build the Metahuman application needed for the application handled within the 
+MultimodalAvatar repository. It contains the following:
 
 * pixel streaming configuration
 * added metahuman configured to use Audio2Face and Audio2Emotion through the NVIDIA ACE plugin
@@ -59,7 +60,7 @@ and that we are in Development mode for Win64
 3. Run the script as an administrator using the "-register" option
 
 ## Packaging the application
-To package the applicatio for Windows follow these steps:
+To package the application for Windows follow these steps:
 1. From the main menu in UE5 click Platforms > Windows > Package project
 2. Create a shortcut to the packaged application
 3. Right click on the shortcut and select properties
