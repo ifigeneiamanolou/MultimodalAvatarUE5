@@ -38,7 +38,11 @@ If one wishes to package the application or edit it within UE5 the NVIDIA ACE Pl
    ```bash
 	git submodule init
    ```
-
+5. Run the following command to add the source code of all submodules:
+   ```bash
+	git submodule update --init --recursive
+   ```
+1. 
 # Developer Instructions
 After cloning the repository and installing NVIDIA ACE, you can edit the code and test the open following these steps:
 1. Ensure through VS Installer that all necessary packages are installed through this guide:
