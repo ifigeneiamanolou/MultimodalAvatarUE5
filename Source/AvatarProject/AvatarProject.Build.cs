@@ -1,13 +1,15 @@
 // Fill out your copyright notice in the Description page of Project Settings.
-
+using System;
 using System.IO;
 using UnrealBuildTool;
+
 
 public class AvatarProject : ModuleRules
 {
 	public AvatarProject(ReadOnlyTargetRules Target) : base(Target)
 	{
-		PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
+
+        PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
 
 		PublicDependencyModuleNames.AddRange(new string[] { 
             "Core", 
@@ -23,7 +25,6 @@ public class AvatarProject : ModuleRules
         PublicIncludePaths.Add(Path.Combine(ModuleDirectory, "ThirdParty", "nlohmann"));
 
 		PrivateDependencyModuleNames.AddRange(new string[] { });
-
         // Uncomment if you are using Slate UI
         // PrivateDependencyModuleNames.AddRange(new string[] { "Slate", "SlateCore" });
 

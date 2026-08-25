@@ -9,7 +9,10 @@ public class AvatarProjectTarget : TargetRules
 	{
 		Type = TargetType.Game;
 		DefaultBuildSettings = BuildSettingsVersion.V5;
+        IncludeOrderVersion = EngineIncludeOrderVersion.Unreal5_6;
+        bOverrideBuildEnvironment = true;
+        bForceEnableExceptions = true;			// Avoid warnings about c++ exceptions
 
-		ExtraModuleNames.AddRange( new string[] { "AvatarProject" } );
+        ExtraModuleNames.AddRange( new string[] { "AvatarProject" } );
 	}
 }
