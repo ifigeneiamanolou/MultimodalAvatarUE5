@@ -63,6 +63,14 @@ and that we are in Development mode for Win64
 2. If not present, look into C:\Program Files\Epic Games\Launcher\Engine\Binaries\Win64 and copy it to the previous folder
 3. Run the script as an administrator using the "-register" option
 
+## Solving error "UE5 project doesn't open"
+1. Right click on the Avatar Project solution on the content browser
+2. Select Properties > Debugging
+3. If the fields command, command arguments and working directory are empty manually add them
+4. Set command arguments to [directory of cloned repo]/AvatarProject.uproject
+5. Set command to [directory of UE5.6 Enginge]/Engine/Binaries/Win64/UnrealEditor.exe
+6. Set command to [directory of UE5.6 Enginge]/Engine/Binaries/Win64
+
 ## Packaging the application
 To package the application for Windows follow these steps:
 1. From the main menu in UE5 click Platforms > Windows > Package project
