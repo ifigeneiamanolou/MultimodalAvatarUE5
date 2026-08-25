@@ -73,10 +73,19 @@ and that we are in Development mode for Win64
 
 ## Packaging the application
 To package the application for Windows follow these steps:
-1. From the main menu in UE5 click Platforms > Windows > Package project
+1. From the root of the drive in a powershell terminal run the following:
+   ``` bash
+	"<UE5 ENGINE>/Build/BatchFiles/RunUAT.bat" BuildCookRun 
+		-project=<LOCATION OF UE5 CLONED PROJECT>
+		-platform=Win64 
+		-clientconfig=Development 
+		-cook -build -stage -pak -archive 
+		-archivedirectory=<LOCATION TO STORE THE PACKAGED APP>
+   ```
+
 2. Create a shortcut to the packaged application
 3. Right click on the shortcut and select properties
-4. Modify the target field by adding -PixelStreamingURL=ws://127.0.0.1:8888 (optionally add -RenderOffScreen so that the screen is not blocked by the UE5 app)
+4. Modify the target field by adding -PixelStreamingURL=ws://127.0.0.1:8888 (optionally add -RenderOffScreen so that the screen is not blocked by the UE5 app and ResX and ResY to define the size of the window)
 5. Launch the signaling and the turn server through the NVIDIA Streaming Infrastructure repository
 6. Launch the UE5 app by double clicking on the shortcut created
 
