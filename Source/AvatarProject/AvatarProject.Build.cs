@@ -22,9 +22,6 @@ public class AvatarProject : ModuleRules
             "ServerWebSocket"
         });
 
-        PublicIncludePaths.Add(Path.Combine(ModuleDirectory, "ThirdParty", "nlohmann"));
-
-		PrivateDependencyModuleNames.AddRange(new string[] { });
         // Uncomment if you are using Slate UI
         // PrivateDependencyModuleNames.AddRange(new string[] { "Slate", "SlateCore" });
 
