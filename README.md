@@ -6,13 +6,14 @@ MultimodalAvatar repository. It contains the following:
 * pixel streaming configuration
 * added metahuman configured to use Audio2Face and Audio2Emotion through the NVIDIA ACE plugin
 * cine camera added and pointed to the metahuman in game startup
+* cached fillers in the form of level sequences
 * additional source code in c++ 
 
 The latter handles the following:
 * creates a web socket server in port 7865 using C library libwebsockets under the hood
 * collects audio and emotion data send by the application in two queues and consumes them in a map of pending sentences
 * once both emotion and audio for a given sentence are available they are dispatched to Audio2Face
-* sends a signal to UE5 blueprints to stop all fillers once the first facial expressions are detected 
+* sends a signal to UE5 blueprints to start a filler once an NLP response has been sent
 
 # Source code
 The source code can be found under the Source/AvatarProject folder in the files:
